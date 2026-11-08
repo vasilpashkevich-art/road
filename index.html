@@ -843,6 +843,7 @@ function validLink(car, k){
 function rebase(car){
   const g0 = car.segs[car.si];
   if (g0 && g0.kind === 'hw'){ // on a highway that was bent: same trip, the deck under the car has a new shape; keep the same share of the way along it
+    if (!pathOk(car.path)) return; // its way further on lost a highway: it looks again when it gets there
     const frac = Math.min(1, car.s / g0.len), segs = buildGeom(car.path);
     if (segs.length === car.segs.length && segs[car.si] && segs[car.si].kind === 'hw'){ const ng = segs[car.si], q = samp(ng, frac);
       car.ox = (car.ox || 0) + car.x - q[0]; car.oy = (car.oy || 0) + car.y - q[1]; car.segs = segs; car.s = frac * ng.len; car.x = q[0]; car.y = q[1]; }
@@ -1600,7 +1601,25 @@ function bendTo(ev){ const b = bendHw, h = b.h, r = cv.getBoundingClientRect(); 
 function endBend(){ const b = bendHw; bendHw = null; if (!b) return;
   if (b.bad){ toast(b.bad); b.h.m = b.m0; shapeHw(b.h); for (const g of hws) if (g !== b.h) shapeHw(g); netV++; }
   saveNow(); }
-function drawHwHandles(){ for (const h of hws){ const q = hwMidPt(h), on = bendHw && bendHw.h === h, bad = on && bendHw.bad;
+// Moving: each end of a highway has a small white ring; drag it onto another piece of road and the highway moves there.
+let moveHw = null;
+function hwEndAt(ev){ const r = cv.getBoundingClientRect(), x = (ev.clientX - r.left - offX) / scale, y = (ev.clientY - r.top - offY) / scale;
+  let best = null, bd = Math.max(CELL * 0.34, 16 / scale); for (const h of hws) for (const e of ['a', 'b']){ const d = Math.hypot(cx(h[e]) - x, cy(h[e]) - y); if (d < bd){ bd = d; best = { h, e }; } } return best; }
+function hwEndWhy(m, c){ const h = m.h, other = m.e === 'a' ? h.b : h.a;
+  if (c < 0) return 'Конец шоссе ставится на дорогу'; if (c === h[m.e]) return '';
+  if (!roads.has(c)) return 'Конец шоссе ставится на дорогу'; if (ringZone.has(c)) return 'Шоссе не начинается на кольце';
+  if (hwOf.has(c)) return 'Здесь уже конец другого шоссе'; if (Math.abs(col_(c) - col_(other)) + Math.abs(row_(c) - row_(other)) < 3) return 'Шоссе должно быть длиннее трёх клеток';
+  const t = { a: m.e === 'a' ? c : h.a, b: m.e === 'b' ? c : h.b }; shapeHw(t); return hwWhyNot(t); }
+function endMove(){ const m = moveHw; moveHw = null; if (!m) return; const c = m.to, h = m.h;
+  if (c < 0 || c === h[m.e]) return; const why = hwEndWhy(m, c); if (why){ toast(why); return; }
+  for (const car of cars) if (car.phase === 'go' && car.segs && car.segs[car.si] && car.segs[car.si].h === h) goHome(car); // cars on the deck being moved go back home
+  hwOf.delete(h.a); hwOf.delete(h.b); h[m.e] = c; h.m = null; hwOf.set(h.a, { h, partner: h.b }); hwOf.set(h.b, { h, partner: h.a });
+  for (const g of hws) shapeHw(g); netV++; saveNow(); }
+function drawHwHandles(){
+  if (moveHw){ const h = moveHw.h, other = moveHw.e === 'a' ? h.b : h.a, c = moveHw.to, bad = c >= 0 && hwEndWhy(moveHw, c);
+    ctx.strokeStyle = bad ? P.warn : P.hwEdge; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(cx(other), cy(other)); ctx.lineTo(moveHw.x, moveHw.y); ctx.stroke(); ctx.setLineDash([]); }
+  for (const h of hws) for (const e of ['a', 'b']){ const on = moveHw && moveHw.h === h && moveHw.e === e, x = on ? moveHw.x : cx(h[e]), y = on ? moveHw.y : cy(h[e]);
+    ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#2b2b33'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, CELL * (on ? 0.2 : 0.15), 0, 7); ctx.fill(); ctx.stroke(); } for (const h of hws){ const q = hwMidPt(h), on = bendHw && bendHw.h === h, bad = on && bendHw.bad;
     ctx.globalAlpha = on ? 1 : 0.9; ctx.fillStyle = P.road; ctx.strokeStyle = bad ? P.warn : P.hwEdge; ctx.lineWidth = on ? 3 : 2;
     ctx.beginPath(); ctx.arc(q.x, q.y, CELL * (on ? 0.22 : 0.16), 0, 7); ctx.fill(); ctx.stroke();
     ctx.fillStyle = bad ? P.warn : P.hwEdge; ctx.beginPath(); ctx.arc(q.x, q.y, CELL * 0.055, 0, 7); ctx.fill(); ctx.globalAlpha = 1; } }
@@ -1631,6 +1650,7 @@ cv.addEventListener('pointerdown', ev => {
   if (touches.size > 2) return;
   if (ev.button === 1){ midPan = { x: ev.clientX, y: ev.clientY }; cv.setPointerCapture(ev.pointerId); ev.preventDefault(); return; }
   if (over || choosing) return;
+  if (ev.button === 0 && (mode === 'draw' || mode === 'hw') && hwStart < 0){ const m = hwEndAt(ev); if (m){ const r = cv.getBoundingClientRect(); moveHw = { ...m, to: -1, x: cx(m.h[m.e]), y: cy(m.h[m.e]) }; cv.setPointerCapture(ev.pointerId); return; } }
   if (ev.button === 0 && (mode === 'draw' || mode === 'hw') && hwStart < 0){ const g = hwHandleAt(ev); if (g){ bendHw = { ...g, m0: g.h.m || null, bad: '' }; cv.setPointerCapture(ev.pointerId); return; } }
   const i = toCell(ev);
   if (ev.button !== 2 && mode === 'ring'){ if (i >= 0) tapRing(i); return; }
@@ -1646,11 +1666,12 @@ cv.addEventListener('pointermove', ev => {
     panBy(x - pinch.x, y - pinch.y); zoomAt(x - r.left, y - r.top, d / Math.max(1, pinch.d)); pinch = { d, x, y }; return; }
   if (midPan){ panBy(ev.clientX - midPan.x, ev.clientY - midPan.y); midPan = { x: ev.clientX, y: ev.clientY }; return; }
   if (bendHw){ bendTo(ev); return; }
+  if (moveHw){ const r = cv.getBoundingClientRect(); moveHw.x = (ev.clientX - r.left - offX) / scale; moveHw.y = (ev.clientY - r.top - offY) / scale; moveHw.to = toCell(ev, false); return; }
   hoverCell = toCell(ev, false);
   if (!drawing) return; const i = toCell(ev, true);
   if (i < 0 || i === last) return; if (last >= 0 && !adj8(last, i)) walk(last, i); else apply(i); });
 const up = ev => { // a stroke released at the edge of a cell still takes that cell
-  touches.delete(ev.pointerId); if (pinch){ if (touches.size < 2) pinch = null; return; } if (midPan){ midPan = null; return; } if (bendHw){ endBend(); return; }
+  touches.delete(ev.pointerId); if (pinch){ if (touches.size < 2) pinch = null; return; } if (midPan){ midPan = null; return; } if (bendHw){ endBend(); return; } if (moveHw){ endMove(); return; }
   if (drawing && ev && ev.type === 'pointerup'){ const i = toCell(ev, false); if (i >= 0 && last >= 0 && i !== last && adj8(last, i)) apply(i); }
   drawing = false; last = -1; stroke = null; };
 cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);

@@ -4,3 +4,4 @@ tests/*.json
 tests/mx*/
 tests/shots/
 tests/*.png
+tests/*.log
