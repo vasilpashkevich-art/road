@@ -1,0 +1,13 @@
+const {chromium}=require('playwright');
+(async()=>{const b=await chromium.launch();const p=await (await b.newContext({viewport:{width:1000,height:760},deviceScaleFactor:1})).newPage();
+p.on('pageerror',e=>console.log('PE',e.message));
+await p.goto('file://'+__dirname+'/hw.html');await p.evaluate(()=>{localStorage.clear();localStorage.setItem('dorozhki-tut','done')}); await p.reload(); await p.waitForTimeout(300);
+console.log(await p.evaluate(()=>__ev(`(()=>{ newGame('minsk'); closeMenu(); for(let k=0;k<4;k++) growArea(); budget=999;
+  const L=(a,b)=>link(a,b,{run:null,warned:true,added:[],bridges:[],tunnels:[]});
+  const line=(c0,r0,c1,r1)=>{ let c=c0,r=r0; while(c!==c1||r!==r1){ const nc=c+Math.sign(c1-c), nr=r+Math.sign(r1-r); if(!water.has(idx(nc,nr))) L(idx(c,r),idx(nc,nr)); c=nc; r=nr; } };
+  const c0=area.c0+2, r0=area.r0+2; line(c0,r0+3,c0+10,r0+3); line(c0+4,r0,c0+4,r0+8); line(c0+8,r0+1,c0+8,r0+3); line(c0+1,r0+3,c0+1,r0+4);
+  ringN=2; setMode('ring'); hoverCell=idx(c0+4,r0+3); paused=true;
+  return JSON.stringify({spots:ringCandidates().length, hint:ringHint()}); })()`)));
+await p.waitForTimeout(300); await p.screenshot({path:__dirname+'/shots/ring_ok.png'});
+console.log(await p.evaluate(()=>__ev(`(()=>{ hoverCell=idx(area.c0+2+8,area.r0+2+3); return ringHint(); })()`)));
+await p.waitForTimeout(200); await p.screenshot({path:__dirname+'/shots/ring_bad.png'}); await b.close();})();

@@ -58,7 +58,9 @@ window.__sim = function(seed, maxT, dt, cfg){
         const ends = p.slice(2, -2).filter(i => roads.has(i) && !hwOf.has(i) && !bridgeOf.has(i) && !ringZone.has(i)); if (ends.length < 2) continue;
         const a0 = ends[0], b0 = ends[ends.length - 1]; if (Math.abs(col_(a0) - col_(b0)) + Math.abs(row_(a0) - row_(b0)) < 4) continue;
         bl = p.length; best = [a0, b0]; } }
-    if (best){ const h = { a: best[0], b: best[1] }; shapeHw(h); hws.push(h); hwOf.set(h.a, { h, partner: h.b }); hwOf.set(h.b, { h, partner: h.a }); hwN--; netV++; st.hws = (st.hws || 0) + 1; }
+    if (best){ const h = { a: best[0], b: best[1] }; shapeHw(h);
+      if (Math.random() < 0.6){ const ax = cx(h.a), ay = cy(h.a), bx = cx(h.b), by = cy(h.b), L = Math.hypot(bx - ax, by - ay), k = (Math.random() * 2 - 1) * 0.5 * L; // swing it like a player dragging the handle
+        h.m = [Math.round((ax + bx) / 2 - (by - ay) / L * k), Math.round((ay + by) / 2 + (bx - ax) / L * k)]; shapeHw(h); if (hwWhyNot(h)){ h.m = null; shapeHw(h); } else st.bent = (st.bent || 0) + 1; } hws.push(h); hwOf.set(h.a, { h, partner: h.b }); hwOf.set(h.b, { h, partner: h.a }); hwN--; netV++; st.hws = (st.hws || 0) + 1; }
   }
   function pick(){
     const btns = [...$('offers').children], names = btns.map(b => b.firstChild.textContent);
@@ -74,6 +76,9 @@ window.__sim = function(seed, maxT, dt, cfg){
     botT -= dt; if (botT <= 0){ botT = cfg.react; connect(); placeRing(); placeLight(); placeHw(); }
     if (cfg.chaos){ st.chT = (st.chT || 0) + dt; if (st.chT > cfg.chaos){ st.chT = 0; const R = Math.random;
       const hs = [...bld.values()].filter(b => b.type === 'house'); const rs = [...roads];
+      if (hws.length && R() < 0.35){ const h = hws[Math.floor(R() * hws.length)], m0 = h.m; const ax = cx(h.a), ay = cy(h.a), bx = cx(h.b), by = cy(h.b), L = Math.hypot(bx - ax, by - ay), k = (R() * 2 - 1) * 0.5 * L; // drag the handle under traffic
+        h.m = R() < 0.2 ? null : [Math.round((ax + bx) / 2 - (by - ay) / L * k), Math.round((ay + by) / 2 + (bx - ax) / L * k)]; shapeHw(h); for (const g of hws) if (g !== h) shapeHw(g);
+        if (hwWhyNot(h)){ h.m = m0; shapeHw(h); for (const g of hws) if (g !== h) shapeHw(g); } else st.rebent = (st.rebent || 0) + 1; netV++; }
       if (R() < 0.5 && hs.length){ const h = hs[Math.floor(R() * hs.length)]; const sides = nb(h.i).map(x => x[1]).filter(j => !occ.has(j) && !water.has(j));
         if (sides.length){ const sd = sides[Math.floor(R() * sides.length)]; link(h.i, sd, { run: null, warned: true, added: [], bridges: [] }); st.turns = (st.turns || 0) + 1; } }
       else if (rs.length){ const c = rs[Math.floor(R() * rs.length)]; eraseCell(c); st.erases = (st.erases || 0) + 1; } } }
@@ -171,6 +176,6 @@ window.__sim = function(seed, maxT, dt, cfg){
     cause = { color: s.color, housesOfColor: mine.length, reachable: mine.filter(h => reach(h, s)).length, shopsOfColor: shops.filter(x => x.color === s.color).length,
       carsGoing: cars.filter(c => c.color === s.color && c.phase === 'go' && !c.back).length, carsStoppedAll: cars.filter(c => c.phase === 'go' && c.v < 1).length, age: Math.round(s.t), slots: s.slots.map(c => c ? c.phase + Math.round(c.v) : '-').join(','), active: s.active, lotCars: cars.filter(c => c.slotShop === s).map(c => c.phase).join(','), atDoor: cars.filter(c => c.phase === 'go' && c.target === s && !c.back && c.v < 1).length, frozen: cars.filter(c => c.phase === 'go' && c.stuck > 30).length, frozenLot: cars.filter(c => c.slotShop && c.stuck > 30).length }; }
   return { seed, t: Math.round(time), over, trips, houses: houses.length, shops: shops.length, colors: colorsInPlay, roads: roads.size, budget, bridgesN, ringN,
-    stop: st.stop, tunnels: [...tunnelOf.values()].filter((v, i, a) => a.indexOf(v) === i).length, tunnelShort: st.tunnelShort || 0, hwsPlaced: st.hws || 0, ringsN: st.ringsPlaced, lightsN: st.lights || 0, err: st.err, inv: st.inv, saveDiff: st.saveDiff, lotStuck: st.lotStuck, shopTypes: [...bld.values()].filter(b => b.type === 'shop').map(b => b.size).join(','), shopTrips: (() => { const o = {}; for (const b of bld.values()) if (b.type === 'shop'){ o[b.size] = (o[b.size] || 0) + (b.done || 0); } return o; })(), watch: st.watch && st.watch.log, ph: st.ph, turns: st.turns, erases: st.erases, pin5: st.firstPin5 && Math.round(st.firstPin5), pin8: st.firstPin8 && Math.round(st.firstPin8), maxStopped: st.maxStopped, roadShort: st.roadShort, bridgeShort: st.bridgeShort,
+    stop: st.stop, tunnels: [...tunnelOf.values()].filter((v, i, a) => a.indexOf(v) === i).length, tunnelShort: st.tunnelShort || 0, hwsPlaced: st.hws || 0, bent: st.bent || 0, rebent: st.rebent || 0, ringsN: st.ringsPlaced, lightsN: st.lights || 0, err: st.err, inv: st.inv, saveDiff: st.saveDiff, lotStuck: st.lotStuck, shopTypes: [...bld.values()].filter(b => b.type === 'shop').map(b => b.size).join(','), shopTrips: (() => { const o = {}; for (const b of bld.values()) if (b.type === 'shop'){ o[b.size] = (o[b.size] || 0) + (b.done || 0); } return o; })(), watch: st.watch && st.watch.log, ph: st.ph, turns: st.turns, erases: st.erases, pin5: st.firstPin5 && Math.round(st.firstPin5), pin8: st.firstPin8 && Math.round(st.firstPin8), maxStopped: st.maxStopped, roadShort: st.roadShort, bridgeShort: st.bridgeShort,
     why: st.why, overlap: st.overlap, rings: st.ringsPlaced, ghosts: st.ghosts, picks: st.picks, cause };
 };
