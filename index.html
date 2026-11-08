@@ -584,21 +584,24 @@ function canRing(i){ // why a roundabout cannot go here, or '' if it can
   if (!roads.has(i)) return 'Кольцо ставится на перекрёсток';
   if (bridgeOf.has(i) || water.has(i)) return 'На мосту кольцо не поставить';
   if (hwOf.has(i) || lights.has(i) || doors.has(i)) return 'Здесь кольцо не встанет';
-  for (const r of rings) if (Math.max(Math.abs(col_(r) - col_(i)), Math.abs(row_(r) - row_(i))) <= 2) return 'Слишком близко к другому кольцу';
-  for (let d = 0; d < 8; d++){ const n = at8(i, d); if (n < 0 || !inPlay(n)) return 'Кольцу нужно место 3×3 клетки';
-    if (occ.has(n) || doors.has(n) || water.has(n)) return 'Кольцу нужно свободное место 3×3 вокруг перекрёстка';
-    if (eOf(n).size && !(hasEdge(n, i) && armOk(n, i))) return 'Вокруг перекрёстка не должно быть других дорог: подведи их к нему прямо'; }
+  for (const r of rings) if (Math.max(Math.abs(col_(r) - col_(i)), Math.abs(row_(r) - row_(i))) <= 1) return 'Слишком близко к другому кольцу';
+  // the ring itself is small: it needs its own cell and the four cells beside it; the corner cells may hold anything
+  for (let d = 0; d < 8; d += 2){ const n = at8(i, d); if (n < 0 || !inPlay(n)) return 'Кольцу нужно место вокруг перекрёстка';
+    if (occ.has(n) || doors.has(n) || water.has(n)) return 'Рядом с перекрёстком стоит дом или вода — кольцо не влезет';
+    if (eOf(n).size && !(hasEdge(n, i) && armOk(n, i))) return 'Дороги у перекрёстка должны подходить к нему прямо'; }
+  for (let d = 1; d < 8; d += 2){ const n = at8(i, d); if (n >= 0 && hasEdge(n, i) && !armOk(n, i)) return 'Дороги у перекрёстка должны подходить к нему прямо'; }
   return ''; }
 function ringBlocksEdge(a, b){ // an edge that would cut into a roundabout's square
   for (const [x, y] of [[a, b], [b, a]]){
     if (rings.has(x)){ const d = dir8(x, y); if (d < 0) return true; const out = at8(y, d); for (const j of eOf(y)) if (j !== out) return true; if (occ.has(y) || doors.has(y)) return true; continue; } // a new arm: the cell beside may only lead straight out
     const c = ringOf(x); if (c < 0) continue;
     if (y === c) continue;
-    const d = dir8(c, x); if (y !== at8(x, d)) return true; // inside the square only the straight arm is allowed
-    if (eOf(x).size && !hasEdge(x, c)) return true; }
+    const d = dir8(c, x);
+    if (hasEdge(x, c) || (d & 1) === 0){ if (y !== at8(x, d)) return true; if (eOf(x).size && !hasEdge(x, c)) return true; continue; } // an arm, or a cell beside the ring: only straight out
+    if (adj8(y, c)) return true; } // a corner cell is free, but its roads must not cut into the ring
   if (dir8(a, b) & 1){ const c1 = idx(col_(a), row_(b)), c2 = idx(col_(b), row_(a)); if (rings.has(c1) || rings.has(c2)) return true; }
   return false; }
-let ringZone = new Set(); function zoneRings(){ ringZone = new Set(); for (const r of rings){ ringZone.add(r); for (let d = 0; d < 8; d++){ const n = at8(r, d); if (n >= 0) ringZone.add(n); } } }
+let ringZone = new Set(); function zoneRings(){ ringZone = new Set(); for (const r of rings){ ringZone.add(r); for (let d = 0; d < 8; d += 2){ const n = at8(r, d); if (n >= 0) ringZone.add(n); } } } // the ring and the four cells beside it
 // An erased road that a car is still driving on fades and stays until that car is through, as in Mini Motorways;
 // no new trip is planned over it.
 let dying = new Set(); const ekey = (a, b) => a < b ? a + ',' + b : b + ',' + a;
@@ -1032,7 +1035,7 @@ function arrive(car){
 
 // ---------- simulation ----------
 const OFFERS = [
-  { k:'ring', n:2, t:'Кольцо ×2', d:'Большое кольцо 3×3: на перекрёстке не тормозят' },
+  { k:'ring', n:2, t:'Кольцо ×2', d:'Кольцо на перекрёстке: машины не тормозят' },
   { k:'hw', n:1, t:'Шоссе', d:'Прямая трасса поверх всего, вдвое быстрее' },
   { k:'bridge', n:2, t:'Мост ×2', d:'Дорога через реку' },
   { k:'roads', n:12, t:'+12 дорог', d:'Ещё клетки дороги' },
@@ -1582,10 +1585,10 @@ let ringSpots = [], ringKey = '';
 function ringCandidates(){ const key = netV + ':' + roads.size + ':' + rings.size + ':' + bld.size + ':' + area.c0 + ':' + area.r0;
   if (key !== ringKey){ ringKey = key; ringSpots = [...roads].filter(i => inPlay(i) && eOf(i).size >= 3 && !canRing(i)); } return ringSpots; }
 function ringHint(){ if (hoverCell >= 0 && roads.has(hoverCell) && !rings.has(hoverCell)){ const w = canRing(hoverCell); if (w) return w; return 'Нажми — кольцо встанет здесь'; }
-  return ringCandidates().length ? 'Зелёным отмечены перекрёстки, где поставится кольцо' : 'Сейчас кольцу негде встать: нужен перекрёсток с пустыми клетками 3×3 вокруг'; }
+  return ringCandidates().length ? 'Зелёным отмечены перекрёстки, где поставится кольцо' : 'Сейчас кольцу негде встать: нужен перекрёсток, к которому дороги подходят прямо и рядом нет домов и воды'; }
 function drawRingSpots(){ const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
   for (const i of ringCandidates()){ if (i === hoverCell) continue; const x = cx(i), y = cy(i);
-    ctx.globalAlpha = 0.16; ctx.fillStyle = P.lampGo; rr(x - CELL * 1.5 + 3, y - CELL * 1.5 + 3, CELL * 3 - 6, CELL * 3 - 6, 14); ctx.fill();
+    ctx.globalAlpha = 0.16; ctx.fillStyle = P.lampGo; ctx.beginPath(); ctx.arc(x, y, RB_DISC + 6, 0, 7); ctx.fill();
     ctx.globalAlpha = 0.75 + 0.25 * pulse; ctx.strokeStyle = P.lampGo; ctx.lineWidth = 3; ctx.setLineDash([6, 5]);
     ctx.beginPath(); ctx.arc(x, y, RB, 0, 7); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
   const h = hoverCell; if (h < 0 || !roads.has(h) || rings.has(h)) return; const x = cx(h), y = cy(h);
@@ -1770,7 +1773,7 @@ const TUT = [
   { text: () => 'Ошибся с дорогой — выбери внизу «Стереть»' + (touchUI ? '' : ' или веди правой кнопкой мыши') + '. ' + (touchUI ? 'Двумя пальцами' : 'Колёсиком') + ' можно приблизить карту.', ok: true, min: 6 },
   { text: () => 'Город растёт: каждую минуту — новая неделя, свежие дороги и награда на выбор. Удачи!', ok: true, min: 5 } ];
 const TOOL_TIPS = {
-  ring: () => ringN > 0 && 'Появилось кольцо. Оно занимает квадрат 3×3: дороги подходят к перекрёстку прямо, рядом нет других дорог. Выбери «Кольцо» и коснись перекрёстка — машины перестанут на нём тормозить.',
+  ring: () => ringN > 0 && 'Появилось кольцо. Выбери «Кольцо» — подходящие перекрёстки подсветятся зелёным; дороги должны подходить к ним прямо, рядом не должно быть домов и воды.',
   hw: () => hwN > 0 && 'Появилось шоссе. Выбери «Шоссе» внизу и коснись двух дорог — оно пройдёт над домами и рекой. Кружок посередине шоссе можно тянуть, чтобы изогнуть его.',
   light: () => lightN > 0 && 'Появился светофор. Выбери «Светофор» и коснись перекрёстка, где сходятся три дороги и больше.',
   bridge: () => bridgesN > 0 && week > 1 && 'Мосты ставятся сами, когда ведёшь дорогу через реку.' };
