@@ -905,7 +905,7 @@ function stepCar(car, dt){
         const b = car.target;
         car.homePath = p; car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], ...backPts(b, stallsOf(b)[car.slot])]));
         car.s = 0; car.phase = 'unpark'; car.rev = true; }
-      else car.waitT = 0.5; }
+      else { car.waitT = 0.5; car.noWay = (car.noWay || 0) + 0.5; if (car.noWay >= 3){ car.noWay = 0; goHome(car); } } } // no way home: after 3 s it goes home anyway, so the stall never stays taken for ever
     return; }
   if ((car.phase === 'unpark' || car.phase === 'leave') && !pathOk(car.homePath)){ const p = bfsNodes(car.target.i, car.home); if (p) car.homePath = p; else { goHome(car); return; } } // the way home changed under us (a highway taken away)
   if (car.phase === 'unpark'){ if (stepLot(car, dt)){
@@ -1029,8 +1029,10 @@ function intoLot(car){ // drive up the middle and pull into the stall nose first
   car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], ...parkPts(b, stallsOf(b)[car.slot])])); car.s = 0; car.phase = 'park'; car.rev = false;
 }
 function waitsRightly(o){ const nx = o.segs && o.segs[o.si + 1]; return !!nx && nx.cell >= 0 && (lotFull(o, o.si + 1) || lightStops(nx.cell, o)); }
-function inProperQueue(car){ if (waitsRightly(car)) return true;
-  return cars.some(o => o !== car && o.phase === 'go' && Math.hypot(o.x - car.x, o.y - car.y) < CAR_L * 3.2 && waitsRightly(o)); }
+function inProperQueue(car){ if ((car.stuck || 0) > 30) return false; // nobody stands longer than half a minute, whatever the reason
+  if (waitsRightly(car)) return true; if (car.back) return false; // a car driving out of a lot is never queueing for it
+  const hx = Math.cos(car.ang), hy = Math.sin(car.ang); // only a queue ahead of us, going our way, counts
+  return cars.some(o => o !== car && o.phase === 'go' && !o.back && Math.hypot(o.x - car.x, o.y - car.y) < CAR_L * 3.2 && (o.x - car.x) * hx + (o.y - car.y) * hy > 0 && Math.cos(o.ang - car.ang) > 0 && waitsRightly(o)); }
 const loopPos = c => c.phase === 'park' ? c.s - (c.loopOff || 0) : c.phase === 'wait' ? (c.loopEnd || 0) : c.phase === 'leave' ? (c.loopEnd || 0) + c.s : -1e9;
 function stepLot(car, dt){
   const g = car.lot, vmax = VMAX * 0.42;
