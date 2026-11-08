@@ -1,0 +1,1651 @@
+<title>Дорожки</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800&display=swap">
+<style>
+/* Layout: one-screen app — top bar with stats, canvas fills the rest, floating tool dock at the bottom. */
+:root{
+  --bg:#e9e6dc; --ground:#f4f2ec; --dot:rgba(60,50,30,.10);
+  --road:#ffffff; --road-edge:#cfc9b8; --bridge:#b9a88a; --hw:#f3cd5a; --hw-edge:#d9ad35; --hw-line:rgba(255,255,255,.85); --pillar:rgba(70,60,40,.35); --ramp:#2a2824;
+  --water:#9cc8e8; --water-edge:#7fb3da; --island:#c9c4b6; --sign:#2a2824;
+  --rock:#c4b393; --rock-hi:#ece3cf; --rock-sh:#94805f; --tree:#7fb069; --tree-dk:#5e9150;
+  --deep:#5f98cc; --shallow:#b3daf1; --wet:#6d9cc4; --sand:#e8dcbc; --sand-dk:#d9c99f; --meadow:#e3e9d2; --warm:#efe8d3;
+  --card:#fbfaf6; --fg:#2a2824; --muted:#7a766b; --panel:rgba(255,255,255,.86); --panel-edge:rgba(40,35,25,.12);
+  --accent:#2f6fde;
+  --c0:#e2563f; --c1:#3f7fe3; --c2:#efb72b; --c3:#3fae6e;
+  --c0d:#a83a28; --c1d:#2b5ab0; --c2d:#b7861a; --c3d:#2a7d4c;
+  --win:rgba(255,255,255,.6); --shadow:rgba(30,25,15,.22); --pin:#ffffff; --pin-edge:rgba(0,0,0,.25);
+  --warn:#d9412c; --chip:#5b5f6b; --lamp-go:#5cc46a; --lamp-stop:#ec6a55; --lamp-ring:#2a2824; --grid:rgba(90,80,60,.28);
+  --font:'Nunito',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#1a1c21; --ground:#23262d; --dot:rgba(255,255,255,.07);
+  --road:#454a56; --road-edge:#2c2f37; --bridge:#6e6352; --hw:#c9a646; --hw-edge:#9c7f2d; --hw-line:rgba(255,255,255,.55); --pillar:rgba(0,0,0,.45); --ramp:#ecebe6;
+  --water:#2c4a63; --water-edge:#233c51; --island:#5a5e68; --sign:#ecebe6;
+  --rock:#4b4840; --rock-hi:#625e54; --rock-sh:#34322c; --tree:#3f6a3c; --tree-dk:#2f522e;
+  --deep:#1b3249; --shallow:#355b78; --wet:#172a3b; --sand:#3a3830; --sand-dk:#45412f; --meadow:#232a27; --warm:#29282a;
+  --card:#2a2d34; --fg:#ecebe6; --muted:#9a9890; --panel:rgba(30,32,38,.88); --panel-edge:rgba(255,255,255,.10);
+  --accent:#6b9cf5;
+  --c0:#f06a52; --c1:#5b94f0; --c2:#f5c743; --c3:#52c484;
+  --c0d:#b54633; --c1d:#3764b8; --c2d:#bf9222; --c3d:#2f8b58;
+  --win:rgba(255,255,255,.4); --shadow:rgba(0,0,0,.45); --pin:#f2f2f2; --pin-edge:rgba(0,0,0,.4);
+  --warn:#ff6a55; --chip:#8a8f9c; --lamp-go:#6fd67c; --lamp-stop:#ff7b66; --lamp-ring:#ecebe6; --grid:rgba(255,255,255,.18); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#1a1c21; --ground:#23262d; --dot:rgba(255,255,255,.07);
+  --road:#454a56; --road-edge:#2c2f37; --bridge:#6e6352; --hw:#c9a646; --hw-edge:#9c7f2d; --hw-line:rgba(255,255,255,.55); --pillar:rgba(0,0,0,.45); --ramp:#ecebe6;
+  --water:#2c4a63; --water-edge:#233c51; --island:#5a5e68; --sign:#ecebe6;
+  --rock:#4b4840; --rock-hi:#625e54; --rock-sh:#34322c; --tree:#3f6a3c; --tree-dk:#2f522e;
+  --deep:#1b3249; --shallow:#355b78; --wet:#172a3b; --sand:#3a3830; --sand-dk:#45412f; --meadow:#232a27; --warm:#29282a;
+  --card:#2a2d34; --fg:#ecebe6; --muted:#9a9890; --panel:rgba(30,32,38,.88); --panel-edge:rgba(255,255,255,.10);
+  --accent:#6b9cf5;
+  --c0:#f06a52; --c1:#5b94f0; --c2:#f5c743; --c3:#52c484;
+  --c0d:#b54633; --c1d:#3764b8; --c2d:#bf9222; --c3d:#2f8b58;
+  --win:rgba(255,255,255,.4); --shadow:rgba(0,0,0,.45); --pin:#f2f2f2; --pin-edge:rgba(0,0,0,.4);
+  --warn:#ff6a55; --chip:#8a8f9c; --lamp-go:#6fd67c; --lamp-stop:#ff7b66; --lamp-ring:#ecebe6; --grid:rgba(255,255,255,.18); color-scheme:dark }
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);overflow:hidden;display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;
+  padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  background:var(--panel);border-bottom:1px solid var(--panel-edge);font-size:14px}
+.bar h1{font-size:17px;font-weight:800;margin:0}
+.stat{display:flex;gap:4px;align-items:baseline;color:var(--muted);font-weight:600;white-space:nowrap}
+.stat b{color:var(--fg);font-weight:800;font-variant-numeric:tabular-nums}
+.score{gap:6px;align-items:center;background:var(--ground);border:1px solid var(--panel-edge);border-radius:999px;padding:2px 10px 2px 3px;transition:transform .18s}
+.score b{font-size:16px}
+.score.bump{transform:scale(1.12)}
+.chip-ico{width:20px;height:20px;border-radius:50%;background-color:#fff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.2);display:inline-block;flex:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5.2 6.6h8.4l-1.2 7.4H6.4z' fill='%232a2824'/%3E%3Cpath d='M13.2 8.2a2 2 0 0 1 0 3.6' fill='none' stroke='%232a2824' stroke-width='1.3'/%3E%3C/svg%3E")}
+.spacer{flex:1}
+.clock{align-items:center;gap:5px} .clk{width:15px;height:15px;color:var(--muted)} #clock{min-width:62px}
+.narrow{display:none}
+@media (max-width:560px){ .wide{display:none} .narrow{display:inline} .bar h1{font-size:15px} .bar{gap:4px 10px} .bar button{padding:5px 10px} }
+button{font:inherit;font-weight:800;font-size:13px;white-space:nowrap;border:1px solid var(--panel-edge);background:var(--ground);color:var(--fg);
+  border-radius:999px;padding:6px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+button.on{background:var(--accent);color:#fff;border-color:transparent}
+button.empty{opacity:.45}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.n{font-variant-numeric:tabular-nums;background:var(--panel-edge);border-radius:999px;padding:0 7px;font-size:12px;min-width:12px;text-align:center}
+button.on .n{background:rgba(255,255,255,.25)}
+.stage{flex:1;position:relative;min-height:0}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+.dock{position:absolute;white-space:nowrap;width:max-content;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom,0px));
+  display:flex;gap:6px;flex-wrap:wrap;justify-content:center;background:var(--panel);border:1px solid var(--panel-edge);
+  border-radius:18px;padding:6px;max-width:calc(100% - 24px);box-sizing:border-box}
+.tag{position:absolute;left:50%;transform:translateX(-50%);top:12px;background:var(--panel);border:1px solid var(--panel-edge);
+  border-radius:999px;padding:6px 16px;font-weight:800;pointer-events:none;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis}
+.toast{top:auto;bottom:calc(70px + env(safe-area-inset-bottom,0px));transition:opacity .3s}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);padding:16px}
+.over .card{background:var(--panel);border:1px solid var(--panel-edge);border-radius:18px;padding:22px 24px;text-align:center;max-width:340px}
+.over h2{margin:0 0 6px;font-size:22px;text-wrap:balance}
+.over .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.over{z-index:5}
+.menu{overflow-y:auto;align-items:safe center}
+.menu .mcard{max-width:560px;width:100%;text-align:left;padding:24px 26px;box-sizing:border-box;background:var(--card);margin:auto 0}
+.mtitle{margin:0;font-size:32px;font-weight:800;letter-spacing:.3px;color:var(--fg)}
+.msub{margin:2px 0 16px!important;color:var(--muted);font-weight:600}
+.cont{width:100%;justify-content:center;font-size:16px;padding:12px;border-radius:14px;background:var(--accent);color:#fff;border-color:transparent;margin-bottom:6px}
+.mlabel{color:var(--muted);font-weight:800;font-size:12px;letter-spacing:.8px;text-transform:uppercase;margin:14px 0 8px}
+.maps{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.map{display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:0 0 10px;border-radius:16px;overflow:hidden;background:var(--ground);border:2px solid var(--accent);text-align:left;white-space:normal}
+.map canvas{position:static;display:block;width:100%;height:auto;margin-bottom:6px}
+.mname{font-weight:800;font-size:15px;padding:0 12px;color:var(--fg)}
+.mdesc{font-weight:600;font-size:13px;padding:0 12px;color:var(--muted)}
+.map.soon{border:2px dashed var(--panel-edge);background:transparent;align-items:center;justify-content:center;color:var(--muted);font-weight:700;text-align:center;padding:16px;min-height:120px}
+.zoom{position:absolute;right:max(12px,env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;z-index:2}
+.zoom button{width:40px;height:40px;padding:0;justify-content:center;font-size:22px;line-height:1;border-radius:12px;background:var(--panel)}
+.zoom button:disabled{opacity:.35;cursor:default}
+.tip{position:absolute;left:50%;transform:translateX(-50%);top:12px;z-index:3;background:var(--panel);border:2px solid var(--accent);border-radius:16px;
+  padding:10px 14px 10px 16px;display:flex;gap:12px;align-items:center;max-width:min(520px,calc(100% - 24px));box-sizing:border-box;box-shadow:0 6px 20px rgba(0,0,0,.15)}
+.tip p{margin:0;font-weight:700;font-size:15px;line-height:1.35;text-wrap:pretty;flex:1 1 auto;min-width:0}
+.tip .tipBtns{display:flex;flex-direction:column;gap:4px;align-items:stretch}
+.tip button{padding:5px 12px;justify-content:center}
+.tip .skip{border:none;background:none;color:var(--muted);font-size:12px;padding:2px 4px}
+.tip.down{top:58px}
+.tip{width:max-content}
+@media (max-width:560px){ .tip{width:calc(100% - 24px);flex-direction:column;align-items:stretch;gap:8px;padding:10px 12px} .tip p{font-size:14px} .tip .tipBtns{flex-direction:row;justify-content:flex-end;align-items:center} }
+.mfoot{margin-top:14px;text-align:center}
+.mfoot button{border:none;background:none;color:var(--muted);text-decoration:underline;font-weight:700}
+.over p{margin:0 0 14px;color:var(--muted);font-weight:600}
+.over b{font-variant-numeric:tabular-nums}
+.offers{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.dock button{padding:6px 11px}
+@media (max-width:560px){ .dock button{padding:5px 8px;font-size:12px} .dock{gap:4px} }
+.offers button{flex-direction:column;border-radius:14px;padding:12px 16px;min-width:120px;font-size:15px}
+.offers button small{font-weight:600;color:var(--muted);font-size:12px;max-width:140px}
+@media (prefers-reduced-motion: reduce){ * {transition:none!important} }
+</style>
+
+<div class="bar">
+  <h1>Дорожки</h1>
+  <span class="stat">неделя <b id="week">1</b></span>
+  <span class="stat clock" title="Неделя идёт минуту; в полночь воскресенья — выбор награды"><svg class="clk" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path id="clkHand" d="M10 10 L10 4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><b id="clock">Пн 00:00</b></span>
+  <span class="stat score" id="score" title="Выполненные заказы"><span class="chip-ico" aria-hidden="true"></span><b id="trips">0</b></span>
+  <span class="spacer"></span>
+  <button id="soundBtn" type="button" aria-pressed="true">Звук</button>
+  <button id="speedBtn" type="button" title="Ускорить время" aria-pressed="false">×2</button>
+  <button id="pauseBtn" type="button">Пауза</button>
+  <button id="menuBtn" type="button">Меню</button>
+</div>
+<div class="stage">
+  <canvas id="c"></canvas>
+  <div class="dock">
+    <button id="tDraw" class="on" type="button">Дорога <span class="n" id="nRoad">0</span></button>
+    <button id="tErase" type="button" title="Стирает дороги; нажатие на шоссе снимает его">Стереть</button>
+    <button id="tRing" type="button">Кольцо <span class="n" id="nRing">0</span></button>
+    <button id="tHw" type="button">Шоссе <span class="n" id="nHw">0</span></button>
+    <button id="tLight" type="button">Светофор <span class="n" id="nLight">0</span></button>
+    <button id="tBridge" type="button" title="Мост ставится сам, когда ведёшь дорогу через реку">Мосты <span class="n" id="nBridge">0</span></button>
+    <button id="tTunnel" type="button" title="Туннель ставится сам, когда ведёшь дорогу через гору" hidden>Туннели <span class="n" id="nTunnel">0</span></button>
+  </div>
+  <div class="zoom"><button id="zIn" type="button" aria-label="Приблизить" title="Приблизить">+</button><button id="zOut" type="button" aria-label="Отдалить" title="Отдалить">−</button></div>
+  <div id="tip" class="tip" hidden role="status"><p id="tipText"></p><div class="tipBtns"><button id="tipOk" type="button" class="on">Понятно</button><button id="tipSkip" type="button" class="skip">Без подсказок</button></div></div>
+  <div id="tag" class="tag" hidden></div>
+  <div id="toast" class="tag toast" hidden></div>
+  <div id="weekBox" class="over" hidden><div class="card"><h2 id="weekTitle">Неделя 2</h2><p>Получено +<span id="weekRoads">15</span> дорог. Выбери ещё одно.</p><div class="offers" id="offers"></div></div></div>
+  <div id="over" class="over" hidden><div class="card"><h2>Магазин переполнен</h2><p>Продержались <b id="overTime"></b>, заказов — <b id="overTrips"></b>.</p><p id="overBest"></p><div class="row"><button id="againBtn" type="button" class="on">Ещё раз</button><button id="overMenuBtn" type="button">В меню</button></div></div></div>
+  <div id="menu" class="over menu" hidden><div class="card mcard">
+    <h1 class="mtitle">Дорожки</h1>
+    <p class="msub">Рисуй дороги — пусть машинки успевают к магазинам</p>
+    <button id="contBtn" type="button" class="cont" hidden>Продолжить</button>
+    <div class="mlabel">Новая игра — выбери карту</div>
+    <div class="maps" id="maps"></div>
+    <div class="mfoot"><button id="tutBtn" type="button">Как играть — пройти обучение заново</button></div>
+  </div></div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const CELL = 40, H = CELL / 2;
+const LANE = CELL * 0.15, CAR_L = CELL * 0.40, CAR_W = CELL * 0.21; // two lanes never let passing cars touch
+const STOP = CAR_L / 2 + 2; // a waiting car keeps its whole body short of the crossing
+const VMAX = CELL * 2.2, ACC = CELL * 3, DEC = CELL * 9, MIN_GAP = CELL * 0.52, LOOK = CELL * 1.25, RING_R = CELL * 0.45, RING_DISC = CELL * 0.68, RING_ISLE = CELL * 0.28; // cars circle at RING_R; the white disc and the island around it
+const WEEK = 60;
+// Pace of the city — every number that decides how fast pressure grows lives here.
+// Tuned on 32 autoplayer games (3×3 parking-lot shops, big roundabouts, zero body contacts): calm first ~8 min, loss around 9 min for the bot.
+const T = { startRoads: 25, weekRoads: 15, offerRoads: 12,
+  cross3: 0.45, cross4: 0.3, grow: 200, // speed share across a plain crossing
+  pinBase: 8, pinRand: 4, ramp: 1100, rampFloor: 0.45, pinMax: 8, overflow: 22,
+  house: 15, houseRand: 8, shop: 38, shopRand: 15, firstHouse: 10, firstShop: 30 };
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const $ = id => document.getElementById(id);
+let W = 0, Hh = 0, dpr = 1, scale = 1, offX = 0, offY = 0, cols = 24, rows = 14;
+
+// ---------- palette ----------
+let P = {};
+function readPalette(){
+  const cs = getComputedStyle(document.documentElement), g = n => cs.getPropertyValue(n).trim();
+  P = { ground:g('--ground'), dot:g('--dot'), road:g('--road'), roadEdge:g('--road-edge'), bridge:g('--bridge'),
+        hw:g('--hw'), hwEdge:g('--hw-edge'), hwLine:g('--hw-line'), pillar:g('--pillar'), ramp:g('--ramp'), water:g('--water'), waterEdge:g('--water-edge'), deep:g('--deep'), rock:g('--rock'), rockHi:g('--rock-hi'), rockSh:g('--rock-sh'), tree:g('--tree'), treeDk:g('--tree-dk'), shallow:g('--shallow'), wet:g('--wet'), sand:g('--sand'), sandDk:g('--sand-dk'), meadow:g('--meadow'), warm:g('--warm'), island:g('--island'), sign:g('--sign'),
+        win:g('--win'), shadow:g('--shadow'), pin:g('--pin'), pinEdge:g('--pin-edge'), warn:g('--warn'), accent:g('--accent'), lampGo:g('--lamp-go'), lampStop:g('--lamp-stop'), lampRing:g('--lamp-ring'), grid:g('--grid'),
+        col:[g('--c0'),g('--c1'),g('--c2'),g('--c3')], dark:[g('--c0d'),g('--c1d'),g('--c2d'),g('--c3d')] };
+}
+readPalette();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readPalette);
+new MutationObserver(readPalette).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+
+// ---------- grid helpers ----------
+const DIRS = [[0,-1],[1,0],[0,1],[-1,0]];
+const OPP = d => (d + 2) & 3;
+const idx = (c, r) => r * cols + c;
+const inb = (c, r) => c >= 0 && r >= 0 && c < cols && r < rows;
+const col_ = i => i % cols, row_ = i => Math.floor(i / cols);
+const cx = i => col_(i) * CELL + H, cy = i => row_(i) * CELL + H;
+const edge = (i, d) => [cx(i) + DIRS[d][0] * H, cy(i) + DIRS[d][1] * H];
+const adj = (a, b) => Math.abs(col_(a) - col_(b)) + Math.abs(row_(a) - row_(b)) === 1;
+const dirTo = (a, b) => { const dc = col_(b) - col_(a), dr = row_(b) - row_(a); return dc === 1 ? 1 : dc === -1 ? 3 : dr === 1 ? 2 : 0; };
+function nb(i){ const c = col_(i), r = row_(i), out = [];
+  for (let d = 0; d < 4; d++){ const nc = c + DIRS[d][0], nr = r + DIRS[d][1]; if (inb(nc, nr)) out.push([d, idx(nc, nr)]); } return out; }
+// Roads are drawn lines: an edge joins two cells only where the player dragged from one to the other (8 directions, 45° allowed).
+const D8 = [[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]];
+const OPP8 = d => (d + 4) & 7;
+const adj8 = (a, b) => a !== b && Math.max(Math.abs(col_(a) - col_(b)), Math.abs(row_(a) - row_(b))) === 1;
+const dir8 = (a, b) => { const dc = col_(b) - col_(a), dr = row_(b) - row_(a); return D8.findIndex(v => v[0] === dc && v[1] === dr); };
+const mid = (i, d) => [cx(i) + D8[d][0] * H, cy(i) + D8[d][1] * H];
+const d4to8 = d => d * 2;
+const eOf = i => E.get(i) || EMPTY; const EMPTY = new Set();
+const hasEdge = (a, b) => eOf(a).has(b);
+
+// ---------- state ----------
+let E, occ, lights, lightN, doors, roads, water, bridgeOf, bridgeSeq, rings, hws, hwOf, bld, cars, locks;
+let mount = new Set(), trees = new Map(), tunnelOf = new Map(), tunnelSeq = 0, tunnelsN = 0; // mountains (roads go through them only in a tunnel) and trees (a road or a building clears them)
+let time, trips, over, spawnHouseT, spawnShopT, colorsInPlay, budget, bridgesN, ringN, hwN, weekT, week;
+let quiet = false, paused = false, choosing = false, mode = 'draw', hwStart = -1, hoverCell = -1;
+
+// The whole map is 30×17 cells (17×30 on a tall screen). Play starts on a 16×9 patch in the middle and opens up one ring every week.
+const FULL = [30, 17], START = [16, 9];
+function sizeGrid(){ const portrait = cv.clientHeight > cv.clientWidth * 1.05; cols = portrait ? FULL[1] : FULL[0]; rows = portrait ? FULL[0] : FULL[1]; }
+let area = { c0: 0, r0: 0, c1: 0, r1: 0 }, view = null; // play area in cells (c1, r1 exclusive) and the camera rectangle in px
+const inPlay = i => { const c = col_(i), r = row_(i); return c >= area.c0 && c < area.c1 && r >= area.r0 && r < area.r1; };
+function startArea(){ const w = cols > rows ? START[0] : START[1], h = cols > rows ? START[1] : START[0];
+  uz = 1; pan = { x: 0, y: 0 };
+  area = { c0: Math.floor((cols - w) / 2), r0: Math.floor((rows - h) / 2), c1: Math.floor((cols - w) / 2) + w, r1: Math.floor((rows - h) / 2) + h }; view = null; }
+function growArea(){ // one more ring of land every week
+  const long = cols > rows; const a = area;
+  if (a.c0 === 0 && a.r0 === 0 && a.c1 === cols && a.r1 === rows) return false;
+  if (long){ a.c0 = Math.max(0, a.c0 - 1); a.c1 = Math.min(cols, a.c1 + 1); if (week % 2 === 0 || (a.c0 === 0 && a.c1 === cols)){ a.r0 = Math.max(0, a.r0 - 1); a.r1 = Math.min(rows, a.r1 + 1); } }
+  else { a.r0 = Math.max(0, a.r0 - 1); a.r1 = Math.min(rows, a.r1 + 1); if (week % 2 === 0 || (a.r0 === 0 && a.r1 === rows)){ a.c0 = Math.max(0, a.c0 - 1); a.c1 = Math.min(cols, a.c1 + 1); } }
+  return true; }
+// Maps. Water is described on a landscape sheet with u (left→right) and v (top→bottom) from 0 to 1;
+// rivers are lines with a width in cells, lakes are ellipses. A tall screen gets the same map turned a quarter.
+const MAPS = {
+  random: { name: 'Случайная', desc: 'Каждый раз новая река', bridges: 1 },
+  minsk: { name: 'Минск', desc: 'Свислочь через весь город, Комсомольское озеро и Чижовка', bridges: 2,
+    rivers: [{ w: 1, pts: [[0.02, 0.04], [0.14, 0.14], [0.26, 0.3], [0.38, 0.42], [0.5, 0.5], [0.6, 0.6], [0.72, 0.72], [0.84, 0.86], [0.96, 1.0]] }],
+    lakes: [[0.22, 0.24, 0.07, 0.13], [0.8, 0.8, 0.06, 0.11]] },
+  bobruisk: { name: 'Бобруйск', desc: 'Широкая Березина и речка Бобруйка', bridges: 2,
+    rivers: [{ w: 2, pts: [[0.74, -0.02], [0.71, 0.2], [0.75, 0.38], [0.7, 0.58], [0.66, 0.8], [0.7, 1.02]] }, { w: 1, pts: [[-0.02, 0.66], [0.2, 0.6], [0.4, 0.66], [0.56, 0.58], [0.71, 0.56]] }] },
+  lake: { name: 'Озеро', desc: 'Большое озеро в центре, ручей и холмы у края', bridges: 1, tunnels: 1,
+    rivers: [{ w: 1, pts: [[0.52, 0.7], [0.48, 0.84], [0.42, 1.02]] }], lakes: [[0.5, 0.42, 0.16, 0.22]], hills: [[0.08, 0.2, 0.07, 0.2], [0.93, 0.78, 0.07, 0.17]] },
+  hills: { name: 'Предгорье', desc: 'Хребет с перевалом, горная речка и леса', bridges: 1, tunnels: 2, woods: 0.2,
+    rivers: [{ w: 1, pts: [[0.62, -0.02], [0.66, 0.3], [0.6, 0.55], [0.66, 0.8], [0.62, 1.02]] }],
+    hills: [[0.3, 0.12, 0.05, 0.22], [0.3, 0.86, 0.05, 0.2], [0.86, 0.3, 0.1, 0.16], [0.92, 0.9, 0.06, 0.14]] } };
+// Mountains from the map's ellipses (the random map gets one or two away from the middle), then trees in groves on open land.
+function buildTerrain(){
+  mount = new Set(); trees = new Map(); const m = MAPS[mapId], portrait = rows > cols, L = portrait ? rows : cols, S = portrait ? cols : rows;
+  let hills = m.hills || [];
+  if (mapId === 'random'){ hills = []; const n = Math.random() < 0.7 ? 1 + (Math.random() < 0.4 ? 1 : 0) : 0;
+    for (let k = 0; k < n; k++){ const u = Math.random() < 0.5 ? 0.08 + Math.random() * 0.14 : 0.78 + Math.random() * 0.14, v = 0.15 + Math.random() * 0.7; hills.push([u, v, 0.05 + Math.random() * 0.04, 0.14 + Math.random() * 0.1]); } }
+  const mc = cols / 2, mr = rows / 2;
+  for (let lc = 0; lc < L; lc++) for (let ls = 0; ls < S; ls++){ const p = [lc + 0.5, ls + 0.5]; let hit = false;
+    const wob = 0.32 * (Math.sin(lc * 1.3 + ls * 0.7) + Math.sin(ls * 1.7 - lc * 0.4)) / 2; // ragged edges, not a clean oval
+    for (const [u, v, ru, rv] of hills){ const dx = (p[0] - u * L) / (ru * L), dy = (p[1] - v * S) / (rv * S); if (dx * dx + dy * dy <= 1 + wob) hit = true; }
+    const i = portrait ? idx(ls, lc) : idx(lc, ls); if (hit && !water.has(i) && Math.hypot(col_(i) + 0.5 - mc, row_(i) + 0.5 - mr) > 4.5) mount.add(i); }
+  // groves: a smooth noise decides where woods are; the middle where the game starts stays clear
+  const ph = [Math.random() * 9, Math.random() * 9, Math.random() * 9], dens = m.woods ?? 0.12;
+  for (let i = 0; i < cols * rows; i++){ if (water.has(i) || mount.has(i)) continue; const c = col_(i), r = row_(i);
+    if (Math.hypot(c + 0.5 - mc, r + 0.5 - mr) < 3.5) continue;
+    const n = Math.sin(c * 0.55 + ph[0]) + Math.sin(r * 0.62 + ph[1]) + Math.sin((c + r) * 0.38 + ph[2]);
+    const near = [...nb(i)].some(([, j]) => mount.has(j)) ? 0.35 : 0; // woods climb the foothills
+    if (n / 3 + near > 0.62 - dens && Math.random() < 0.55 + near) trees.set(i, 1 + Math.floor(Math.random() * 3)); }
+}
+let mapId = 'random';
+function buildWater(){
+  const m = MAPS[mapId]; if (!m.rivers && !m.lakes){ makeRiver(); return; }
+  water = new Set(); riverChain = [];
+  const portrait = rows > cols, L = portrait ? rows : cols, S = portrait ? cols : rows; // L: long side, S: short side
+  const toCell = (u, v) => [u * L, v * S]; // in landscape cells
+  const dSeg = (p, a, b) => { const vx = b[0] - a[0], vy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / (vx * vx + vy * vy || 1))); return Math.hypot(p[0] - a[0] - vx * t, p[1] - a[1] - vy * t); };
+  for (let lc = 0; lc < L; lc++) for (let ls = 0; ls < S; ls++){
+    const p = [lc + 0.5, ls + 0.5]; let wet = false;
+    for (const rv of m.rivers || []){ const pts = rv.pts.map(q => toCell(q[0], q[1]));
+      for (let k = 1; k < pts.length && !wet; k++) if (dSeg(p, pts[k-1], pts[k]) <= rv.w / 2 + 0.02) wet = true; }
+    for (const [u, v, ru, rv] of m.lakes || []){ const dx = (p[0] - u * L) / (ru * L), dy = (p[1] - v * S) / (rv * S); if (dx * dx + dy * dy <= 1) wet = true; }
+    if (wet) water.add(portrait ? idx(ls, lc) : idx(lc, ls)); }
+  // a river one cell wide must stay joined edge to edge, never only by a corner
+  for (const i of [...water]){ const c = col_(i), r = row_(i);
+    for (const [dc, dr] of [[1, 1], [1, -1]]){ if (!inb(c + dc, r + dr)) continue; const j = idx(c + dc, r + dr);
+      if (water.has(j) && !water.has(idx(c + dc, r)) && !water.has(idx(c, r + dr))) water.add(idx(c + dc, r)); } }
+}
+let riverChain = [], riverPortrait = false;
+function makeRiver(){
+  water = new Set(); riverChain = [];
+  const portrait = rows > cols, len = portrait ? cols : rows, across = portrait ? rows : cols;
+  const base = Math.round(across * 0.76), ph = Math.random() * 6;
+  let prev = null;
+  for (let k = 0; k < len; k++){
+    let p = Math.round(base + 1.3 * Math.sin(k * 0.45 + ph));
+    if (prev !== null) p = Math.max(prev - 1, Math.min(prev + 1, p));
+    const put = q => { const i = portrait ? idx(k, q) : idx(q, k); water.add(i); riverChain.push(i); };
+    if (prev !== null && prev !== p) put(prev); put(p);
+    prev = p;
+  }
+}
+function reset(){
+  sizeGrid();
+  flies = []; dying = new Set(); E = new Map(); occ = new Map(); lights = new Map(); lightN = 0; roads = new Set(); doors = new Set(); bridgeOf = new Map(); bridgeSeq = 0; rings = new Set(); ringZone = new Set(); tunnelOf = new Map(); tunnelSeq = 0; hws = []; hwOf = new Map();
+  bld = new Map(); cars = []; locks = new Map();
+  time = 0; trips = 0; over = false; spawnHouseT = T.firstHouse; spawnShopT = T.firstShop; colorsInPlay = 1;
+  budget = T.startRoads; bridgesN = MAPS[mapId].bridges; tunnelsN = MAPS[mapId].tunnels || 0; ringN = 0; hwN = 0; weekT = WEEK; week = 1; hwStart = -1;
+  buildWater(); buildTerrain(); waterImg = null; startArea();
+  $('over').hidden = true; $('weekBox').hidden = true; choosing = false; setPaused(false); setMode('draw');
+  // the first shop near the middle on dry land, with two houses on its own bank
+  const mc = Math.floor(cols / 2), mr = Math.floor(rows / 2);
+  for (let rad = 0, done = false; rad < 8 && !done; rad++) for (let dc = -rad; dc <= rad && !done; dc++) for (let dr = -rad; dr <= rad && !done; dr++){
+    if (Math.max(Math.abs(dc), Math.abs(dr)) !== rad || !inb(mc + dc, mr + dr)) continue;
+    if (placeShop(idx(mc + dc, mr + dr), 0, 'kiosk')){ done = true; const sb = [...bld.values()][0];
+      for (let k = 0; k < 2; k++){ const h = spotNear(sb.i); if (h >= 0) place(h, 'house', 0); } } }
+}
+function pickDoor(i){ // the one side a building can be reached from
+  const ok = nb(i).filter(([, j]) => !water.has(j) && !mount.has(j) && !ringZone.has(j) && !occ.has(j) && !doors.has(j) && inPlay(j));
+  if (!ok.length) return -1;
+  const onRoad = ok.find(([, j]) => roads.has(j)); if (onRoad) return onRoad[0];
+  const tx = cols / 2 - 0.5 - col_(i), ty = rows / 2 - 0.5 - row_(i);
+  ok.sort((a, b) => (DIRS[b[0]][0] * tx + DIRS[b[0]][1] * ty + Math.random() * 3) - (DIRS[a[0]][0] * tx + DIRS[a[0]][1] * ty + Math.random() * 3));
+  return ok[0][0];
+}
+// Shops come in several shapes. Each is drawn in its own frame: u runs across (the drive is the line u = 1.5),
+// v runs from the entrance (v = 0) deeper into the shop. Cell [cu, cv] covers u cu..cu+1, v cv..cv+1; cell [1, 0] is the gate (b.i),
+// the door cell lies in front of it. A type may be built mirrored (lat to the other side), so the corner shop can turn either way.
+// Stalls: [u, v] for a straight bay off the drive, [u, v, 'h'] for a bay at an angle (herringbone) that the car enters past and leaves forward.
+const rng = (a, b) => { const o = []; for (let k = a; k < b; k++) o.push(k); return o; };
+const cellsOf = (u0, v0, u1, v1) => { const o = []; for (const cu of rng(u0, u1)) for (const cv of rng(v0, v1)) o.push([cu, cv]); return o; };
+const SHOP_TYPES = {
+  kiosk:  { name: 'Киоск', depth: 1, lot: [0, 0, 3, 1], bld: [[1, 1, 2, 2]], stalls: [[2.36, 0.62], [0.64, 0.62]] },
+  square: { name: 'Квадратный', depth: 2, lot: [1, 0, 3, 2], bld: [[-1, 0, 1, 2]], stalls: [[2.36, 0.55], [2.36, 1.05], [2.36, 1.55]] },
+  corner: { name: 'Угловой', depth: 2, lot: [0, 0, 2, 2], bld: [[0, 2, 3, 3], [2, 0, 3, 3]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
+  m:      { name: 'Средний', depth: 2, lot: [0, 0, 3, 2], bld: [[0, 2, 3, 3]], stalls: [[2.36, 0.85], [0.64, 0.85], [2.36, 1.55], [0.64, 1.55]] },
+  long:   { name: 'Длинный', depth: 3, lot: [1, 0, 3, 3], bld: [[0, 0, 1, 3]], stalls: [[2.3, 0.5, 'h'], [2.3, 0.97, 'h'], [2.3, 1.44, 'h'], [2.3, 1.91, 'h'], [2.3, 2.38, 'h']] },
+  l:      { name: 'Прямой', depth: 3, lot: [0, 0, 3, 3], bld: [[0, 3, 3, 4]], stalls: [[2.36, 0.8], [0.64, 0.8], [2.36, 1.3], [0.64, 1.3], [2.36, 1.8], [0.64, 1.8], [2.36, 2.3], [0.64, 2.3]] } };
+for (const k in SHOP_TYPES){ const T0 = SHOP_TYPES[k]; T0.lotCells = cellsOf(...T0.lot); T0.bldCells = []; for (const r of T0.bld) for (const c of cellsOf(...r)) if (!T0.bldCells.some(q => q[0] === c[0] && q[1] === c[1])) T0.bldCells.push(c); }
+const LEGACY_SHOP = { s: 'kiosk' }; // saves from before the shapes
+const stallsOf = b => SHOP_TYPES[b.size].stalls;
+// How many orders a shop holds before its timer starts, and how often it orders: small ones 6, big ones up to 10; a grown shop holds 2 more and orders a quarter faster.
+const SHOP_CAP = { kiosk: 6, square: 6, corner: 6, m: 8, long: 8, l: 10 }, SHOP_RATE = { kiosk: 1.15, square: 1.1, corner: 1.1, m: 1, long: 1, l: 0.85 };
+const capOf = b => (SHOP_CAP[b.size] || 8) + (b.lvl ? 2 : 0), rateOf = b => (SHOP_RATE[b.size] || 1) * (b.lvl ? 0.75 : 1);
+function pickShopSize(){ const r = Math.random(), pick = w => { let t = 0; for (const [k, p] of w){ t += p; if (r < t) return k; } return w[w.length - 1][0]; }; // small ones first, bigger ones later in the game
+  if (time < 240) return pick([['kiosk', 0.45], ['square', 0.3], ['corner', 0.25]]);
+  if (time < 600) return pick([['kiosk', 0.2], ['square', 0.22], ['corner', 0.22], ['m', 0.16], ['long', 0.2]]);
+  return pick([['kiosk', 0.1], ['square', 0.15], ['corner', 0.17], ['m', 0.16], ['long', 0.2], ['l', 0.22]]); }
+function lanePt(b, u, v, out){ // a point on the in- or out-lane of the middle drive
+  const F = DIRS[b.door], h = out ? F : [-F[0], -F[1]], p = shopPt(b, u, v); return [p[0] - h[1] * LANE, p[1] + h[0] * LANE]; }
+function shopPt(b, u, v){ const F = DIRS[b.door], R = DIRS[b.lat]; return [cx(b.i) + ((u - 1.5) * R[0] + (0.5 - v) * F[0]) * CELL, cy(b.i) + ((u - 1.5) * R[1] + (0.5 - v) * F[1]) * CELL]; }
+function shopCells(G, f, lat, type){ // grid cells of a shop standing at gate G, door side f, across-direction lat
+  const F = DIRS[f], R = DIRS[lat], T0 = SHOP_TYPES[type], c = col_(G), r = row_(G);
+  const at = ([cu, cv]) => { const cc = c + R[0] * (cu - 1) - F[0] * cv, rr2 = r + R[1] * (cu - 1) - F[1] * cv; return inb(cc, rr2) ? idx(cc, rr2) : -1; };
+  const lot = T0.lotCells.map(at), bldc = T0.bldCells.map(at);
+  return { cells: [...lot, ...bldc], lot, door: inb(c + F[0], r + F[1]) ? idx(c + F[0], r + F[1]) : -1 };
+}
+function shopFit(G, f, lat, type){
+  const fit = shopCells(G, f, lat, type), { cells, door } = fit;
+  if (door < 0 || cells.some(x => x < 0) || !inPlay(door) || cells.some(x => !inPlay(x))) return null;
+  if (cells.some(x => ringZone.has(x) || mount.has(x) || roads.has(x) || occ.has(x) || water.has(x) || doors.has(x) || underDiag(x))) return null;
+  if (water.has(door) || mount.has(door) || occ.has(door) || doors.has(door) || ringZone.has(door)) return null;
+  for (const x of cells) for (let dc = -1; dc <= 1; dc++) for (let dr = -1; dr <= 1; dr++){ const cc = col_(x) + dc, rr2 = row_(x) + dr; if (inb(cc, rr2) && (occ.has(idx(cc, rr2)) || water.has(idx(cc, rr2)) || mount.has(idx(cc, rr2)))) return null; } // a free strip all round, never on the riverbank or the foot of a hill
+  return fit;
+}
+function makeShop(G, f, lat, type, fit, color){
+  const T0 = SHOP_TYPES[type];
+  return { i: G, type: 'shop', color, pins: 0, reserved: 0, overT: 0, t: 0, door: f, lat, doorCell: fit.door,
+    cells: fit.cells, lot: new Set(fit.lot), size: type, depth: T0.depth, slots: T0.stalls.map(() => null), active: T0.stalls.length, pinT: 4 + Math.random() * 3 }; }
+function placeShop(seed, color, size){
+  size = size || pickShopSize(); const T0 = SHOP_TYPES[size], all = [...T0.lotCells, ...T0.bldCells];
+  const opts = [];
+  for (let f = 0; f < 4; f++) for (const lat of [(f + 1) & 3, (f + 3) & 3]){ const F = DIRS[f], R = DIRS[lat];
+    for (const [cu, cv] of all){ // the seed may be any cell of the footprint
+      const gc = col_(seed) - R[0] * (cu - 1) + F[0] * cv, gr = row_(seed) - R[1] * (cu - 1) + F[1] * cv; if (!inb(gc, gr)) continue;
+      const G = idx(gc, gr), fit = shopFit(G, f, lat, size); if (!fit) continue;
+      opts.push({ G, f, lat, fit, score: F[0] * (cols / 2 - gc) + F[1] * (rows / 2 - gr) + Math.random() * 4 }); } }
+  if (!opts.length) return false;
+  opts.sort((a, b) => b.score - a.score); const o = opts[0];
+  const b = makeShop(o.G, o.f, o.lat, size, o.fit, color);
+  doors.add(b.doorCell); for (const x of b.cells){ occ.set(x, b); trees.delete(x); } trees.delete(b.doorCell);
+  bld.set(b.i, b); autoDoor(b.doorCell);
+  for (const h of hws) shapeHw(h);
+  return true;
+}
+function unplaceShop(b){ for (const x of b.cells) occ.delete(x); doors.delete(b.doorCell); if (hasEdge(b.i, b.doorCell)) delEdge(b.i, b.doorCell); bld.delete(b.i); for (const h of hws) shapeHw(h); }
+function place(i, type, color){
+  if (type === 'shop') return placeShop(i, color, quiet ? 'kiosk' : undefined);
+  const door = pickDoor(i); if (door < 0) return false;
+  const b = { i, type, color, pins: 0, reserved: 0, overT: 0, t: 0, door, doorCell: nb(i).find(x => x[0] === door)[1] };
+  doors.add(b.doorCell); occ.set(i, b); trees.delete(i); trees.delete(b.doorCell);
+  if (type === 'house'){ b.cars = [mkCar(b), mkCar(b)]; cars.push(...b.cars); }
+  else b.pinT = 4 + Math.random() * 3;
+  bld.set(i, b); roads.delete(i); autoDoor(b.doorCell); sfx('house');
+  for (const h of hws) shapeHw(h); // a new roof under a highway lifts it
+  return true;
+}
+function freeSpot(){
+  const r0 = 3 + time / 25, mc = (area.c0 + area.c1) / 2, mr = (area.r0 + area.r1) / 2;
+  for (let t = 0; t < 120; t++){
+    const a = Math.random() * Math.PI * 2, d = Math.random() * Math.min(r0, Math.hypot(cols, rows) / 2);
+    const c = Math.round(mc + Math.cos(a) * d * (cols > rows ? 1.4 : 1)), r = Math.round(mr + Math.sin(a) * d * (rows > cols ? 1.4 : 1));
+    if (!inb(c, r) || !inPlay(idx(c, r))) continue;
+    const i = idx(c, r); if (ringZone.has(i) || mount.has(i) || roads.has(i) || occ.has(i) || water.has(i) || doors.has(i) || underDiag(i) || pickDoor(i) < 0) continue;
+    let ok = true;
+    for (let dc = -1; dc <= 1 && ok; dc++) for (let dr = -1; dr <= 1; dr++){ if (inb(c+dc, r+dr) && occ.has(idx(c+dc, r+dr))){ ok = false; break; } }
+    if (ok) return i;
+  }
+  return -1;
+}
+
+function underDiag(i){ const c = col_(i), r = row_(i), ok = (dc, dr) => inb(c+dc, r+dr) ? idx(c+dc, r+dr) : -1;
+  for (const [a, b] of [[ok(0,-1), ok(1,0)], [ok(1,0), ok(0,1)], [ok(0,1), ok(-1,0)], [ok(-1,0), ok(0,-1)]]) if (a >= 0 && b >= 0 && hasEdge(a, b)) return true; return false; }
+function canBuild(i){ if (!inPlay(i) || ringZone.has(i) || mount.has(i) || roads.has(i) || occ.has(i) || water.has(i) || doors.has(i) || underDiag(i) || pickDoor(i) < 0) return false; const c = col_(i), r = row_(i);
+  for (let dc = -1; dc <= 1; dc++) for (let dr = -1; dr <= 1; dr++) if (inb(c+dc, r+dr) && occ.has(idx(c+dc, r+dr))) return false; return true; }
+function landSteps(a, b, lim){ // walking distance over dry land (river not crossed), or Infinity
+  const seen = new Map([[a, 0]]), q = [a];
+  for (let h = 0; h < q.length; h++){ const u = q[h], d = seen.get(u); if (u === b) return d; if (d >= lim) continue;
+    for (const [, v] of nb(u)) if (!seen.has(v) && !water.has(v) && !mount.has(v)){ seen.set(v, d + 1); q.push(v); } }
+  return Infinity; }
+function spotNear(i){ // free cell 2–4 cells from a building, same bank of the river preferred by trying close rings first
+  const c0 = col_(i), r0 = row_(i);
+  for (let rad = 2; rad <= 5; rad++){ const cand = [];
+    for (let dc = -rad; dc <= rad; dc++) for (let dr = -rad; dr <= rad; dr++){
+      if (Math.max(Math.abs(dc), Math.abs(dr)) !== rad) continue; const c = c0 + dc, r = r0 + dr;
+      if (inb(c, r) && canBuild(idx(c, r)) && landSteps(i, idx(c, r), 12) < Infinity) cand.push(idx(c, r)); } // same river bank
+    if (cand.length) return cand[Math.floor(Math.random() * cand.length)]; }
+  return -1;
+}
+function neediestColor(){ // the colour whose shops have the fewest houses per shop
+  let best = 0, bv = Infinity;
+  for (let c = 0; c < colorsInPlay; c++){ let s = 0, h = 0;
+    for (const b of bld.values()) if (b.color === c){ if (b.type === 'shop') s++; else h++; }
+    const v = (h + Math.random() * 0.5) / Math.max(1, s); if (v < bv){ bv = v; best = c; } }
+  return best;
+}
+
+// ---------- road graph ----------
+// The cell in front of an entrance is that building's driveway: any road reaching it connects the building.
+function autoDoor(i){ if (!roads.has(i) || !doors.has(i)) return;
+  for (const b of bld.values()) if (b.doorCell === i && !hasEdge(b.i, i)) addEdge(b.i, i); }
+let netV = 0; // bumps whenever the road network changes, so driving cars look again at their way
+function refreshNode(i){ netV++; if (eOf(i).size > 0 && !bld.has(i)) roads.add(i); else if (roads.delete(i)) cleanup(i); if (E.has(i) && !E.get(i).size) E.delete(i); } // a cell that stops being road lets go of its ring, light or highway end, however that happened
+function addEdge(a, b){ if (!E.has(a)) E.set(a, new Set()); if (!E.has(b)) E.set(b, new Set()); E.get(a).add(b); E.get(b).add(a); refreshNode(a); refreshNode(b); }
+function delEdge(a, b){ eOf(a).delete(b); eOf(b).delete(a); refreshNode(a); refreshNode(b); }
+const freeEdge = (a, b) => bld.has(a) || bld.has(b) || water.has(a) || water.has(b) || mount.has(a) || mount.has(b); // drives, bridges and tunnels do not use road stock
+function canEdge(a, b){ // can a road join a and b directly?
+  if (!adj8(a, b) || hasEdge(a, b) || !inPlay(a) || !inPlay(b)) return false;
+  if (bld.has(a) && bld.has(b)) return false;
+  if ((occ.has(a) && !bld.has(a)) || (occ.has(b) && !bld.has(b))) return false; // the walls and lot of a shop are not road
+  if (bld.has(a) && bld.get(a).doorCell !== b) return false;
+  if (bld.has(b) && bld.get(b).doorCell !== a) return false;
+  for (const w of [a, b]) if ((water.has(w) || mount.has(w)) && eOf(w).size >= 2) return false; // no forks on a bridge or in a tunnel
+  if ((bld.has(a) && mount.has(b)) || (bld.has(b) && mount.has(a))) return false;
+  if (rings.size && ringBlocksEdge(a, b)) return false;
+  const d = dir8(a, b);
+  if (d & 1){ const c1 = idx(col_(a), row_(b)), c2 = idx(col_(b), row_(a));
+    if (hasEdge(c1, c2)) return false;                 // never cross another diagonal
+    if (occ.has(c1) || occ.has(c2)) return false;      // never clip a building corner
+    if ((water.has(c1) || water.has(c2)) && !water.has(a) && !water.has(b)) return false;
+    if ((mount.has(c1) || mount.has(c2)) && !mount.has(a) && !mount.has(b)) return false; }
+  return true;
+}
+// ---------- roundabouts (Mini Motorways style) ----------
+// A roundabout takes the whole 3×3 square round its crossing. Roads reach it only as straight arms from the edge of that square
+// to the middle; nothing else may be drawn inside the square, and no house or shop is built there. Cars drive one big circle.
+const RB = CELL * 0.98, RB_DISC = CELL * 1.32, RB_ISLE = CELL * 0.6;
+const at8 = (i, d, n = 1) => { const c = col_(i) + D8[d][0] * n, r = row_(i) + D8[d][1] * n; return inb(c, r) ? idx(c, r) : -1; };
+function ringOf(n){ for (let d = 0; d < 8; d++){ const c = at8(n, d); if (c >= 0 && rings.has(c)) return c; } return -1; } // the roundabout whose square n lies in (not its middle)
+function armOk(n, c){ // n, a neighbour of the middle c, may be an arm: linked to c and at most straight on outwards
+  const d = dir8(c, n), out = at8(n, d);
+  for (const j of eOf(n)) if (j !== c && j !== out) return false;
+  return !occ.has(n) && !water.has(n) && !doors.has(n) && !hwOf.has(n) && !lights.has(n); }
+const isArm = (n, c) => c >= 0 && rings.has(c) && adj8(n, c) && hasEdge(n, c) && armOk(n, c);
+function canRing(i){ // why a roundabout cannot go here, or '' if it can
+  if (!roads.has(i)) return 'Кольцо ставится на перекрёсток';
+  if (bridgeOf.has(i) || water.has(i)) return 'На мосту кольцо не поставить';
+  if (hwOf.has(i) || lights.has(i) || doors.has(i)) return 'Здесь кольцо не встанет';
+  for (const r of rings) if (Math.max(Math.abs(col_(r) - col_(i)), Math.abs(row_(r) - row_(i))) <= 2) return 'Слишком близко к другому кольцу';
+  for (let d = 0; d < 8; d++){ const n = at8(i, d); if (n < 0 || !inPlay(n)) return 'Кольцу нужно место 3×3 клетки';
+    if (occ.has(n) || doors.has(n) || water.has(n)) return 'Кольцу нужно свободное место 3×3 вокруг перекрёстка';
+    if (eOf(n).size && !(hasEdge(n, i) && armOk(n, i))) return 'Вокруг перекрёстка не должно быть других дорог: подведи их к нему прямо'; }
+  return ''; }
+function ringBlocksEdge(a, b){ // an edge that would cut into a roundabout's square
+  for (const [x, y] of [[a, b], [b, a]]){
+    if (rings.has(x)){ const d = dir8(x, y); if (d < 0) return true; const out = at8(y, d); for (const j of eOf(y)) if (j !== out) return true; if (occ.has(y) || doors.has(y)) return true; continue; } // a new arm: the cell beside may only lead straight out
+    const c = ringOf(x); if (c < 0) continue;
+    if (y === c) continue;
+    const d = dir8(c, x); if (y !== at8(x, d)) return true; // inside the square only the straight arm is allowed
+    if (eOf(x).size && !hasEdge(x, c)) return true; }
+  if (dir8(a, b) & 1){ const c1 = idx(col_(a), row_(b)), c2 = idx(col_(b), row_(a)); if (rings.has(c1) || rings.has(c2)) return true; }
+  return false; }
+let ringZone = new Set(); function zoneRings(){ ringZone = new Set(); for (const r of rings){ ringZone.add(r); for (let d = 0; d < 8; d++){ const n = at8(r, d); if (n >= 0) ringZone.add(n); } } }
+// An erased road that a car is still driving on fades and stays until that car is through, as in Mini Motorways;
+// no new trip is planned over it.
+let dying = new Set(); const ekey = (a, b) => a < b ? a + ',' + b : b + ',' + a;
+function inUse(a, b){ for (const c of cars){ if (c.phase !== 'go' || !c.path) continue; const k0 = Math.max(1, c.segs[c.si] ? c.segs[c.si].node : 1);
+    for (let k = k0; k < c.path.length; k++){ const x = c.path[k - 1], y = c.path[k]; if ((x === a && y === b) || (x === b && y === a)) return true; } } return false; }
+function stepDying(){ for (const k of [...dying]){ const [a, b] = k.split(',').map(Number); if (!hasEdge(a, b)){ dying.delete(k); continue; } if (!inUse(a, b)){ dying.delete(k); delEdge(a, b); if (!roads.has(a)) cleanup(a); if (!roads.has(b)) cleanup(b); autoDoor(a); autoDoor(b); } } }
+function gnb(u){ const out = [...eOf(u)].filter(v => !dying.has(ekey(u, v))); const h = hwOf.get(u); if (h && roads.has(u)) out.push(h.partner); return out; }
+function linkCount(i){ return eOf(i).size + (hwOf.has(i) ? 1 : 0); }
+const isJunction = i => i >= 0 && roads.has(i) && linkCount(i) >= 3;
+function bfsNodes(start, tb){
+  const par = new Map([[start, -1]]), q = [start]; let f = -1;
+  for (let h = 0; h < q.length; h++){ const u = q[h];
+    if (roads.has(u) && hasEdge(u, tb.i)){ f = u; break; }
+    for (const v of gnb(u)) if (roads.has(v) && !par.has(v)){ par.set(v, u); q.push(v); } }
+  if (f < 0) return null;
+  const p = []; for (let u = f; u !== -1; u = par.get(u)) p.push(u); p.reverse();
+  return [...p, tb.i];
+}
+
+// ---------- geometry ----------
+function mk(kind, p0, c, p2, node, cell, pts){
+  const g = { kind, p0, c, p2, node, cell, pts, pre: !!pts };
+  if (pts){ g.cum = [0]; for (let k = 1; k < pts.length; k++) g.cum.push(g.cum[k-1] + Math.hypot(pts[k][0]-pts[k-1][0], pts[k][1]-pts[k-1][1])); g.len = g.cum[g.cum.length-1]; }
+  else if (kind === 'curve'){ let L = 0, pv = p0; for (let k = 1; k <= 16; k++){ const s = raw(g, k / 16); L += Math.hypot(s[0]-pv[0], s[1]-pv[1]); pv = s; } g.len = L; }
+  else g.len = Math.hypot(p2[0]-p0[0], p2[1]-p0[1]);
+  g.len = Math.max(g.len, 0.001);
+  return g;
+}
+const right = d => { const v = D8[d], l = Math.hypot(v[0], v[1]); return [-v[1] / l * LANE, v[0] / l * LANE]; };
+function ringSeg(i, din, dout, k){
+  const C = [cx(i), cy(i)], hin = OPP8(din), ri = right(hin), ro = right(dout), e0 = mid(i, din), e1 = mid(i, dout);
+  const pts = [[e0[0] + ri[0], e0[1] + ri[1]]];
+  const ti = Math.atan2(D8[din][1], D8[din][0]), to = Math.atan2(D8[dout][1], D8[dout][0]);
+  let D = ti - to; while (D <= 0) D += Math.PI * 2; while (D > Math.PI * 2) D -= Math.PI * 2;
+  const N = Math.max(3, Math.ceil(D / (Math.PI / 10)));
+  for (let s = 0; s <= N; s++){ const t = ti - 0.42 - (D - 0.84) * s / N; pts.push([C[0] + Math.cos(t) * RING_R, C[1] + Math.sin(t) * RING_R]); }
+  pts.push([e1[0] + ro[0], e1[1] + ro[1]]);
+  return mk('poly', null, null, null, k, i, pts);
+}
+function bigRing(c, a1, a2, k){ // the way round a 3×3 roundabout: in along arm a1, counter-clockwise round the circle, out along arm a2
+  const d1 = dir8(c, a1), d2 = dir8(c, a2), C = [cx(c), cy(c)], u = d => { const v = D8[d], l = Math.hypot(v[0], v[1]); return [v[0] / l, v[1] / l]; };
+  const v1 = u(d1), v2 = u(d2), r1 = [v1[1] * LANE, -v1[0] * LANE], r2 = [-v2[1] * LANE, v2[0] * LANE]; // lane offsets: coming in, going out (keep right)
+  const R1 = Math.hypot(D8[d1][0], D8[d1][1]) * CELL * 1.5, R2 = Math.hypot(D8[d2][0], D8[d2][1]) * CELL * 1.5;
+  const ti = Math.atan2(v1[1], v1[0]), to = Math.atan2(v2[1], v2[0]); let D = ti - to; while (D <= 0.35) D += Math.PI * 2; while (D > Math.PI * 2 + 0.35) D -= Math.PI * 2;
+  const P = [[C[0] + v1[0] * R1 + r1[0], C[1] + v1[1] * R1 + r1[1]], [C[0] + v1[0] * (RB + CELL * 0.42) + r1[0], C[1] + v1[1] * (RB + CELL * 0.42) + r1[1]]];
+  const ph = 0.5, N = Math.max(3, Math.ceil((D - 2 * ph) / 0.3));
+  for (let s = 0; s <= N; s++){ const t = ti - ph - (D - 2 * ph) * s / N; P.push([C[0] + Math.cos(t) * RB, C[1] + Math.sin(t) * RB]); }
+  P.push([C[0] + v2[0] * (RB + CELL * 0.42) + r2[0], C[1] + v2[1] * (RB + CELL * 0.42) + r2[1]], [C[0] + v2[0] * R2 + r2[0], C[1] + v2[1] * R2 + r2[1]]);
+  return mk('poly', null, null, null, k, c, crPts(P)); }
+function buildGeom(path){
+  const segs = [];
+  for (let k = 0; k < path.length; k++){
+    const i = path[k], prev = k > 0 ? path[k-1] : -1, next = k < path.length - 1 ? path[k+1] : -1;
+    if (k > 0 && k < path.length - 1 && ((rings.has(next) && isArm(i, next) && k + 2 < path.length && isArm(path[k + 2], next)) || (rings.has(prev) && isArm(i, prev) && k >= 2 && isArm(path[k - 2], prev)))) continue; // an arm is part of its roundabout
+    if (rings.has(i) && prev >= 0 && next >= 0 && isArm(prev, i) && isArm(next, i) && k >= 2 && k + 2 < path.length){ segs.push(bigRing(i, prev, next, k)); continue; }
+    const din = prev >= 0 && adj8(prev, i) ? dir8(i, prev) : -1, dout = next >= 0 && adj8(i, next) ? dir8(i, next) : -1;
+    const C = [cx(i), cy(i)];
+    if (din >= 0 && dout >= 0){
+      if (rings.has(i)) segs.push(ringSeg(i, din, dout, k));
+      else if (din === OPP8(dout)) segs.push(mk('line', mid(i, din), null, mid(i, dout), k, i));
+      else segs.push(mk('curve', mid(i, din), C, mid(i, dout), k, i));
+    } else if (din >= 0) segs.push(mk('line', mid(i, din), null, C, k, i));
+    else if (dout >= 0) segs.push(mk('line', C, null, mid(i, dout), k, i));
+    if (next >= 0 && !adj8(i, next)){ const h = hwOf.get(i).h, sm = h.a === i ? h.smp : [...h.smp].reverse();
+      const pts = sm.map((q, n) => { const a = sm[Math.max(0, n - 1)], b = sm[Math.min(sm.length - 1, n + 1)], l = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+        return [q.x - (b.y - a.y) / l * LANE, q.y + (b.x - a.x) / l * LANE]; });
+      const g = mk('hw', null, null, null, k, -1, pts); g.h = h; segs.push(g); }
+  }
+  // glue each highway's ends onto the lane positions of the road pieces before and after it
+  for (let k = 0; k < segs.length; k++) if (segs[k].kind === 'hw'){ const g = segs[k];
+    if (k > 0) { const e = samp(segs[k-1], 1); g.pts[0] = [e[0], e[1]]; }
+    if (k < segs.length - 1){ const e = samp(segs[k+1], 0); g.pts[g.pts.length - 1] = [e[0], e[1]]; }
+    const ng = mk('hw', null, null, null, g.node, -1, g.pts); ng.h = g.h; segs[k] = ng; }
+  return segs;
+}
+function raw(g, t){
+  if (g.kind === 'curve'){ const u = 1 - t; return [u*u*g.p0[0] + 2*u*t*g.c[0] + t*t*g.p2[0], u*u*g.p0[1] + 2*u*t*g.c[1] + t*t*g.p2[1]]; }
+  return [g.p0[0] + (g.p2[0]-g.p0[0]) * t, g.p0[1] + (g.p2[1]-g.p0[1]) * t];
+}
+function samp(g, t){
+  let x, y, a;
+  if (g.pts){
+    const d = t * g.len; let k = 1; while (k < g.cum.length - 1 && g.cum[k] < d) k++;
+    const a0 = g.pts[k-1], a1 = g.pts[k], f = (d - g.cum[k-1]) / Math.max(0.001, g.cum[k] - g.cum[k-1]);
+    x = a0[0] + (a1[0]-a0[0]) * f; y = a0[1] + (a1[1]-a0[1]) * f; a = Math.atan2(a1[1]-a0[1], a1[0]-a0[0]);
+  } else if (g.kind === 'curve'){
+    const u = 1 - t; [x, y] = raw(g, t);
+    a = Math.atan2(2*u*(g.c[1]-g.p0[1]) + 2*t*(g.p2[1]-g.c[1]), 2*u*(g.c[0]-g.p0[0]) + 2*t*(g.p2[0]-g.c[0]));
+  } else { [x, y] = raw(g, t); a = Math.atan2(g.p2[1]-g.p0[1], g.p2[0]-g.p0[0]); }
+  if (!g.pre){ x += -Math.sin(a) * LANE; y += Math.cos(a) * LANE; }
+  return [x, y, a];
+}
+
+// ---------- cars ----------
+let carSeq = 0;
+function mkCar(home){ return { id: ++carSeq, home, color: home.color, phase: 'home', back: false, path: null, segs: null, si: 0, s: 0, v: 0,
+  x: cx(home.i), y: cy(home.i), ang: 0, da: 0, target: null, waitT: 0, lock: -1, waitG: -1, stuck: 0, ghost: 0, slot: -1, slotShop: null, lot: null, rev: false }; }
+function startTrip(car, path, target, back){
+  car.path = path; car.segs = buildGeom(path); car.si = 0; car.s = 0; car.v = 0; car.phase = 'go'; car.back = back; car.target = target;
+  car.stuck = 0; car.ghost = 0; car.passCar = null; car.netV = netV; car.ox = car.oy = 0;
+  const p = samp(car.segs[0], 0); car.x = p[0]; car.y = p[1]; car.ang = car.da = p[2];
+  enterCell(car, car.segs[0].cell);
+}
+// Neighbouring junction cells form one crossing: a car takes the whole crossing, so two cars never wait on each other inside it.
+let jGroup = new Map(), jCap = new Map();
+function buildGroups(){
+  jGroup = new Map(); jCap = new Map();
+  for (const i of roads){ if (jGroup.has(i) || !isJunction(i)) continue;
+    const q = [i]; jGroup.set(i, i); let ring = false;
+    for (let h = 0; h < q.length; h++){ const u = q[h]; if (rings.has(u)) ring = true;
+      for (const v of eOf(u)) if (!jGroup.has(v) && isJunction(v)){ jGroup.set(v, i); q.push(v); } }
+    jCap.set(i, ring && q.length === 1 ? 3 : 1); }
+}
+function enterCell(car, cell){
+  const g = cell >= 0 && jGroup.has(cell) ? jGroup.get(cell) : -1;
+  if (car.lock === g) return;
+  if (car.lock >= 0){ const s = locks.get(car.lock); if (s) s.delete(car); car.lock = -1; }
+  if (g >= 0){ let s = locks.get(g); if (!s) locks.set(g, s = new Set()); s.add(car); car.lock = g; }
+}
+function exitBlocked(car, g){ // do not enter the crossing while the road just past it is jammed
+  for (let k = car.si + 1; k < car.segs.length; k++){ const sg = car.segs[k];
+    if (sg.cell >= 0 && jGroup.get(sg.cell) === g) continue;
+    if (sg.cell >= 0 && bld.has(sg.cell)) return false;
+    const [px, py] = samp(sg, 0);
+    for (const o of cars){ if (o === car || o.phase !== 'go' || o.lock === g) continue;
+      const ea = sg_ang(sg), dd = Math.hypot(o.x - px, o.y - py); if (Math.cos(o.ang - ea) <= 0.3) continue;
+      if (dd < MIN_GAP + CAR_L * 0.5 || (dd < LOOK && o.v < VMAX * 0.3)) return true; // room for a whole car past the crossing
+      const up = (px - o.x) * Math.cos(ea) + (py - o.y) * Math.sin(ea); if (up > 0 && dd < LOOK * 1.3 && o.v > VMAX * 0.2) return true; } // and yield to a car already coming along that road
+    return false; }
+  return false;
+}
+const sg_ang = sg => samp(sg, 0.02)[2];
+// Points along a car's way through a crossing, to test whether two movements would touch.
+function wayPts(c, from, g){ const out = [];
+  for (let k = from; k < c.segs.length; k++){ const sg = c.segs[k]; if (sg.cell < 0 || jGroup.get(sg.cell) !== g) break;
+    if (!sg.probe){ sg.probe = []; for (let t = 0; t <= 6; t++) sg.probe.push(samp(sg, t / 6)); }
+    for (const q of sg.probe) out.push(q); }
+  return out; }
+// Traffic light: approaches are split into two axes; one axis has green at a time, with a short all-red between.
+const lightAxis = (L, from) => { const d = dir8(L, from); return d < 0 ? 0 : (d % 4 < 2 ? 0 : 1); };
+function lightStops(cell, car){
+  const L = lights.get(cell); if (!L) return false;
+  const k = car.si; let from = -1; for (let j = k; j >= 0; j--){ const c = car.segs[j].cell; if (c >= 0 && c !== cell){ from = c; break; } }
+  if (from < 0 || !adj8(from, cell)) return false;
+  const ax = lightAxis(cell, from); L.want[ax] = true;
+  return L.clear > 0 || L.g !== ax;
+}
+function stepLights(dt){
+  for (const L of lights.values()){
+    if (L.clear > 0){ L.clear -= dt; if (L.clear <= 0){ L.g = 1 - L.g; L.t = 0; } L.want = [false, false]; continue; }
+    L.t += dt; const other = 1 - L.g;
+    // switch when green has run its course, or early when nobody waits on green but someone waits on red
+    if (L.want[other] && (L.t >= 7 || (L.t >= 3 && !L.want[L.g]))) L.clear = 0.7;
+    L.want = [false, false]; }
+}
+function lockFull(cell, car){
+  if (car.ghost <= 0 && lightStops(cell, car)) return true;
+  const g = jGroup.get(cell); if (g === undefined || car.lock === g) return false;
+  const s = locks.get(g); const occ = [];
+  if (s) for (const o of s) if (o !== car && o.phase === 'go' && o.lock === g) occ.push(o);
+  if (occ.length >= (jCap.get(g) === 3 ? 3 : 4)) return true;
+  if (car.stuck >= 5) return false; // long wait: go as soon as there is physical room
+  if (occ.length){ // several cars at once only if their ways never come close; on a ring only the merge has to be clear
+    const ring = jCap.get(g) === 3, all = wayPts(car, car.si + 1, g), mine = ring ? all.slice(0, 3) : all, lim = CAR_W * 1.7;
+    for (const o of occ){ const theirs = wayPts(o, o.si, g);
+      if (theirs.length && mine.length && Math.hypot(theirs[0][0] - mine[0][0], theirs[0][1] - mine[0][1]) < 1 && o.si > 0) continue; // same lane behind it: plain following
+      for (const a of mine) for (const b of theirs) if (Math.abs(a[0] - b[0]) < lim && Math.abs(a[1] - b[1]) < lim && Math.hypot(a[0] - b[0], a[1] - b[1]) < lim) return true; } }
+  return exitBlocked(car, g);
+}
+// As in Mini Motorways the order calls the car: each free pin goes to the nearest free car of its colour,
+// and shops whose timer is already running are served first.
+let dispatchT = 0;
+function shopDist(sh){ const d = new Map(), q = [];
+  for (const v of gnb(sh.i)) if (roads.has(v)){ d.set(v, 1); q.push(v); }
+  for (let h = 0; h < q.length; h++){ const u = q[h], du = d.get(u); for (const v of gnb(u)) if (roads.has(v) && !d.has(v)){ d.set(v, du + 1); q.push(v); } }
+  return d; }
+function dispatch(dt){
+  dispatchT -= dt || 0.05; if (dispatchT > 0) return; dispatchT = 0.2;
+  const ready = new Set();
+  for (const b of bld.values()){ if (b.type !== 'house' || time - (b.outT || -9) < 1.4 || !b.cars.some(c => c.phase === 'home')) continue;
+    if (cars.some(o => o.phase === 'go' && (Math.hypot(o.x - cx(b.i), o.y - cy(b.i)) < MIN_GAP + 2 || Math.hypot(o.x - cx(b.doorCell), o.y - cy(b.doorCell)) < MIN_GAP + 4))) continue; // pull out only when the driveway and the road in front are clear
+    ready.add(b); }
+  if (!ready.size) return;
+  const shops = [...bld.values()].filter(s => s.type === 'shop' && s.pins - s.reserved > 0)
+    .sort((a, b) => (b.overT > 0) - (a.overT > 0) || (b.pins - capOf(b)) - (a.pins - capOf(a)));
+  for (const sh of shops){ let free = sh.pins - sh.reserved, dm = null;
+    while (free > 0){ let best = null, bd = 1e9;
+      for (const h of ready){ if (h.color !== sh.color || !hasEdge(h.i, h.doorCell)) continue; if (!dm) dm = shopDist(sh); const d = dm.get(h.doorCell); if (d !== undefined && d < bd){ bd = d; best = h; } }
+      if (!best) break;
+      const p = bfsNodes(best.i, sh), car = best.cars.find(c => c.phase === 'home'); ready.delete(best); if (!p || !car) continue;
+      sh.reserved++; free--; startTrip(car, p, sh, false); best.outT = time; } }
+}
+function boxHit(ax, ay, aa, bx, by, ba, pad){ // do two car bodies touch? (oriented rectangles, pad = extra margin in px)
+  const A = [Math.cos(aa), Math.sin(aa)], B = [Math.cos(ba), Math.sin(ba)], hl = CAR_L / 2 + pad, hw = CAR_W / 2 + pad, d = [bx - ax, by - ay];
+  for (const n of [A, [-A[1], A[0]], B, [-B[1], B[0]]]){
+    const ra = hl * Math.abs(A[0] * n[0] + A[1] * n[1]) + hw * Math.abs(-A[1] * n[0] + A[0] * n[1]);
+    const rb = hl * Math.abs(B[0] * n[0] + B[1] * n[1]) + hw * Math.abs(-B[1] * n[0] + B[0] * n[1]);
+    if (Math.abs(d[0] * n[0] + d[1] * n[1]) > ra + rb) return false; }
+  return true; }
+// Physical guard: a move that would make two bodies touch is not made. Whatever the traffic rules decide, cars never overlap.
+const upHigh = c => { const g = c.segs[c.si]; return g.kind === 'hw' && c.s > CELL * 1.3 && c.s < g.len - CELL * 1.3; };
+const layerOf = c => c.phase !== 'go' ? 'g' : (c.segs[c.si].kind === 'hw' ? 'hw' : 'g');
+function wouldHit(car, nx, ny, nda, ra, skip){ // ra: the true heading, when nda is the body as drawn
+  const mine = car.phase === 'go' ? carHw(car) : null, lay = layerOf(car);
+  for (const o of cars){ if (o === car || o === skip || o.phase === 'home') continue;
+    if (Math.abs(o.x - nx) > CAR_L * 1.3 || Math.abs(o.y - ny) > CAR_L * 1.3) continue;
+    const ol = layerOf(o); if (ol !== lay && !(mine && o.phase === 'go' && carHw(o) === mine)) continue;
+    if (lay === 'hw' && ol === 'hw' && carHw(o) !== mine && upHigh(car) && upHigh(o)) continue; // two highways cross at different heights; near the ends both are down at the road
+    // oncoming traffic keeps to its own lane: judged on the true body with a thin margin, else two cars meeting on a tight bend hold each other forever
+    const on = car.phase === 'go' && o.phase === 'go' && Math.cos(o.ang - car.ang) < -0.5, pad = on ? 0.15 : 0.6, a1 = on && ra !== undefined ? ra : nda;
+    if (!boxHit(nx, ny, a1, o.x, o.y, on ? o.ang : o.da, pad)) continue;
+    if (!boxHit(car.x, car.y, on ? car.ang : car.da, o.x, o.y, on ? o.ang : o.da, pad)) return o; // would touch
+    if (Math.hypot(nx - o.x, ny - o.y) < Math.hypot(car.x - o.x, car.y - o.y)) return o; } // already touching: only moves apart are allowed
+  return null; }
+function gapAhead(car, seg){
+  let best = 1e9; const hx = Math.cos(car.ang), hy = Math.sin(car.ang), mine = carHw(car), onHw = seg.kind === 'hw';
+  const holds = car.lock; const waitsForMe = o => holds >= 0 && o.waitG === holds && o.v < 1; const polite = car.stuck < 5;
+  for (const o of cars){ if (o === car || o.phase !== 'go' || waitsForMe(o)) continue;
+    // cars on a highway deck and cars on the road beneath it do not meet; on a ramp they share the same lane
+    const theirs = carHw(o), oOnHw = o.segs[o.si].kind === 'hw';
+    if (onHw !== oOnHw && !(mine && mine === theirs)) continue;
+    if (onHw && oOnHw && mine !== theirs) continue;
+    const dx = o.x - car.x, dy = o.y - car.y, f = dx * hx + dy * hy;
+    if (f <= 0 || f > LOOK) continue;
+    if (Math.abs(-dx * hy + dy * hx) > CELL * 0.13) continue;
+    if (Math.cos(o.ang - car.ang) < 0.2) continue;
+    const of = -dx * Math.cos(o.ang) - dy * Math.sin(o.ang); // side by side on a bend, each may see the other ahead: one of them goes first
+    if (of > 0 && of < LOOK && Math.abs(dx * Math.sin(o.ang) - dy * Math.cos(o.ang)) < CELL * 0.13 && car.id < o.id) continue;
+    if (f < best) best = f; }
+  // on bends the lane test above can miss the car ahead, so also check the bodies themselves:
+  // would this car touch another one after creeping a few pixels forward?
+  if (polite) for (const o of cars){ if (o === car || o.phase !== 'go' || waitsForMe(o)) continue;
+    const theirs = carHw(o), oOnHw = o.segs[o.si].kind === 'hw'; if (onHw !== oOnHw && !(mine && mine === theirs)) continue;
+    const dx = o.x - car.x, dy = o.y - car.y; if (Math.abs(dx) > CAR_L * 1.6 || Math.abs(dy) > CAR_L * 1.6) continue;
+    if (dx * hx + dy * hy <= 0 || Math.cos(o.ang - car.ang) < 0.5) continue; // only traffic going my way; crossing and oncoming cars are kept apart by the crossing rules and lanes
+    if (!boxHit(car.x + hx * 10, car.y + hy * 10, car.da, o.x, o.y, o.da, 2)) continue;
+    // if it would also hit me by moving on, only one of the two holds back
+    if (boxHit(o.x + Math.cos(o.ang) * 10, o.y + Math.sin(o.ang) * 10, o.da, car.x, car.y, car.da, 2) && car.id < o.id) continue;
+    best = Math.min(best, MIN_GAP - 1); }
+  return best;
+}
+function validLink(car, k){
+  const a = car.path[k], b = car.path[k + 1];
+  if (b === undefined) return true;
+  if (adj8(a, b)) return hasEdge(a, b);
+  const h = hwOf.get(a); return !!h && h.partner === b;
+}
+// The network changed under a driving car (a new road, a roundabout, a highway, a road taken away):
+// it looks again for the best way from the cell it is in and slides onto the new line there, without a jump.
+function rebase(car){
+  const g = car.segs[car.si]; if (!g || g.kind === 'hw' || g.cell < 0 || rings.has(g.cell) || ringZone.has(g.cell)) return;
+  const k = g.node, i = car.path[k], prev = k > 0 ? car.path[k - 1] : -1, tb = car.back ? car.home : car.target;
+  if (k >= car.path.length - 2 || !tb || !bld.has(tb.i) || prev < 0 || !hasEdge(prev, i)) return;
+  const np = bfsNodes(i, tb); if (!np) return;
+  const path = [prev, ...np], segs = buildGeom(path), j = segs.findIndex(q => q.node === 1); if (j < 0) return;
+  const ng = segs[j]; let bt = 0, bd = 1e9;
+  for (let n = 0; n <= 24; n++){ const q = samp(ng, n / 24), d = Math.hypot(q[0] - car.x, q[1] - car.y); if (d < bd){ bd = d; bt = n / 24; } }
+  if (bd > CELL * 0.6) return;
+  const q = samp(ng, bt); car.ox = (car.ox || 0) + car.x - q[0]; car.oy = (car.oy || 0) + car.y - q[1];
+  car.path = path; car.segs = segs; car.si = j; car.s = bt * ng.len; car.x = q[0]; car.y = q[1]; }
+function replan(car, k){
+  const np = bfsNodes(car.path[k], car.target); if (!np) return false;
+  car.path = [car.path[k - 1], ...np]; car.segs = buildGeom(car.path);
+  car.si = car.segs.findIndex(g => g.node === 1); if (car.si < 0) return false;
+  return true;
+}
+function stepCar(car, dt){
+  if (car.phase === 'home') return;
+  if (car.phase === 'park'){ if (stepLot(car, dt)){ // parked: the order is delivered
+      const s = car.target; s.pins = Math.max(0, s.pins - 1); s.reserved = Math.max(0, s.reserved - 1); trips++; s.done = (s.done || 0) + 1; if (!quiet && typeof launchChip === 'function') launchChip(s);
+      car.phase = 'wait'; car.waitT = 1.0; car.v = 0; } return; }
+  if (car.phase === 'wait'){ car.waitT -= dt;
+    if (car.waitT <= 0){ const p = lotMoving(car.target, ['park', 'unpark', 'leave']) ? null : bfsNodes(car.target.i, car.home); // one car pulls out at a time, never while another pulls in
+      if (p){ // back out deeper into the lot so the nose ends up facing the exit
+        const b = car.target;
+        car.homePath = p; car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], ...backPts(b, stallsOf(b)[car.slot])]));
+        car.s = 0; car.phase = 'unpark'; car.rev = true; }
+      else car.waitT = 0.5; }
+    return; }
+  if (car.phase === 'unpark'){ if (stepLot(car, dt)){
+      const b = car.target, start = samp(buildGeom(car.homePath)[0], 0);
+      car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], lanePt(b, 1.5, 0.62, true), [start[0], start[1]]]));
+      car.s = 0; car.phase = 'leave'; car.rev = false; car.v = 0; } return; }
+  if (car.phase === 'leave'){ const st0 = samp(buildGeom(car.homePath)[0], 0);
+    if (car.s > car.lot.len - MIN_GAP && !spotFree(st0[0], st0[1], car, st0[2])){ car.v = 0; return; } // wait at the gate until the road is clear
+    if (stepLot(car, dt)){ const v = car.v, da = car.da; releaseStall(car); startTrip(car, car.homePath, car.home, true); car.v = v; car.da = da; } return; }
+  if (car.netV !== netV){ car.netV = netV; rebase(car); }
+  if (car.ox || car.oy){ const k = Math.exp(-dt * 7); car.ox *= k; car.oy *= k; if (Math.abs(car.ox) + Math.abs(car.oy) < 0.05){ car.ox = 0; car.oy = 0; } }
+  let seg = car.segs[car.si];
+  let vt = VMAX * (seg.kind === 'hw' ? 2 : 1), blocked = false; car.gap = undefined;
+  { // ease off before a bend or the roundabout and pick up again after it
+    // a plain crossing (no light, no roundabout) is slow, as in Mini Motorways: cars creep across it; four ways are slower than three
+    const crossV = g => g.cell >= 0 && jGroup.has(g.cell) && !rings.has(g.cell) && !lights.has(g.cell) && !doors.has(g.cell) ? VMAX * (linkCount(g.cell) >= 4 ? T.cross4 : T.cross3) : Infinity;
+    const bendV = g => Math.min(crossV(g), g.kind === 'curve' ? VMAX * 0.75 : (g.kind === 'poly' ? VMAX * 0.68 : Infinity));
+    vt = Math.min(vt, bendV(seg)); const nx = car.segs[car.si + 1];
+    if (nx){ const vb = bendV(nx); if (vb < Infinity) vt = Math.min(vt, Math.sqrt(vb * vb + 2 * CELL * 4 * Math.max(0, seg.len - car.s))); } }
+  if (car.ghost > 0) car.ghost -= dt;
+  else {
+    const gap = gapAhead(car, seg); car.gap = gap;
+    if (gap < LOOK) vt = Math.min(vt, VMAX * Math.max(0, (gap - MIN_GAP) / (LOOK - MIN_GAP)));
+    const nx = car.segs[car.si + 1];
+    car.waitG = -1;
+    if (nx && nx.cell >= 0 && nx.cell !== seg.cell && (lotFull(car, car.si + 1) || lockFull(nx.cell, car))){ blocked = true; vt = Math.min(vt, Math.max(0, seg.len - STOP - car.s) * 5);
+      car.waitG = jGroup.has(nx.cell) ? jGroup.get(nx.cell) : -1; }
+  }
+  const dv = vt - car.v; car.v += Math.max(-DEC * dt, Math.min(ACC * dt, dv));
+  
+  // hard rule: never move closer than a body length plus a hair to the car ahead, however fast we were going
+  if (car.passCar && (car.passCar.phase !== 'go' || Math.hypot(car.passCar.x - car.x, car.passCar.y - car.y) > CAR_L * 1.4 || (car.passT += dt) > 2.5)) car.passCar = null; // a short leave only, counted even while standing: two cars must not stay on top of each other
+  let step = car.v * dt; if (car.ghost <= 0 && car.gap !== undefined && car.gap < LOOK){ const room = Math.max(0, car.gap - CAR_L - 3); if (step > room){ step = room; car.v = Math.min(car.v, room / dt); } }
+  if (step > 0){ let tries = 0; // shorten the step until the body is clear
+    const shown = a => { let d = a - car.da; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return car.da + d * Math.min(1, dt * 16); }; // the body as it will be drawn
+    const at = d => { let k = car.si, r = car.s + d; while (r > car.segs[k].len && k + 1 < car.segs.length){ r -= car.segs[k].len; k++; } return samp(car.segs[k], Math.min(1, r / car.segs[k].len)); }; // where the car really ends up, even past a segment end
+    // Two cars standing nose to side in each other's way would wait forever. After a moment one of them squeezes past
+    // (the one already in the crossing, else the lower number) if it has room ahead, and keeps that leave until the two are apart.
+    const first = o => (car.lock >= 0 && o.lock !== car.lock) ? true : (o.lock >= 0 && o.lock !== car.lock) ? false : car.id < o.id;
+    let hit = null;
+    while (tries < 4){ const q = at(step), chk = () => wouldHit(car, q[0], q[1], shown(q[2]), q[2], car.passCar) || wouldHit(car, q[0], q[1], q[2], undefined, car.passCar);
+      hit = chk();
+      if (hit && hit.holdBy === car.id && car.holdBy === hit.id && car.holdT > 1.5 && hit.holdT > 1.5 && first(hit) && !blocked && (car.gap === undefined || car.gap > CAR_L * 2 + MIN_GAP) && (() => { const z = at(CAR_L * 1.4); return !wouldHit(car, z[0], z[1], z[2], undefined, hit); })()){ car.passCar = hit; car.passT = 0; hit = chk(); } // only with room to get clear
+      if (!hit) break; step *= 0.4; tries++; }
+    if (tries === 4){ step = 0; car.v = 0; }
+    const by = tries === 4 && hit ? hit.id : -1; car.holdT = by >= 0 && by === car.holdBy ? (car.holdT || 0) + dt : 0; car.holdBy = by; }
+  const s0 = car.s, siPrev = car.si; car.s += step;
+  if (step < VMAX * 0.05 * dt) car.stuck += dt; else car.stuck = 0; // counted on the distance really covered, so a car held by the body check also counts as waiting
+  if (blocked && car.s > seg.len - STOP){ car.s = Math.min(seg.len, Math.max(seg.len - STOP, s0)); car.v = 0; } // front bumper stops at the line, not inside the crossing
+  while (car.s >= seg.len){
+    const nx = car.segs[car.si + 1];
+    if (nx && nx.cell >= 0 && nx.cell !== seg.cell && (lotFull(car, car.si + 1) || (car.ghost <= 0 && lockFull(nx.cell, car)))){ car.s = seg.len; car.v = 0; break; }
+    car.s -= seg.len; car.si++;
+    if (car.si >= car.segs.length){ arrive(car); return; }
+    if (!car.back && car.si === car.segs.length - 1 && car.target.type === 'shop'){ // entering the lot
+      const k = lotMoving(car.target, ['unpark', 'leave']) ? -1 : freeStall(car.target); if (k < 0){ car.si--; car.s = seg.len; car.v = 0; break; }
+      car.slot = k; car.slotShop = car.target; car.target.slots[k] = car;
+      const [x0, y0] = samp(car.segs[car.si], 0); car.x = x0; car.y = y0; enterCell(car, -1); intoLot(car); return; }
+    const ns = car.segs[car.si];
+    if (ns.node !== seg.node){ let ok = true; for (let q = seg.node + 1; q <= ns.node; q++) if (!validLink(car, q)) ok = false; // a roundabout seg spans its two arms too
+      if (!ok && !replan(car, ns.node)){ goHome(car); return; } }
+    seg = car.segs[car.si];
+    enterCell(car, seg.cell);
+  }
+  const [x, y, a] = samp(seg, Math.min(1, car.s / seg.len));
+  car.x = x; car.y = y; car.ang = a;
+  let d = a - car.da; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
+  if (car.s !== s0 || car.si !== siPrev) car.da += d * Math.min(1, dt * 16); // the body turns only while the car moves
+}
+function crPts(P){ // smooth line through waypoints (Catmull-Rom)
+  const out = [];
+  for (let i = 0; i < P.length - 1; i++){ const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
+    for (let k = 0; k < 8; k++){ const t = k / 8, t2 = t * t, t3 = t2 * t, f = j => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3);
+      out.push([f(0), f(1)]); } }
+  out.push(P[P.length - 1]); return out; }
+const freeStall = b => { for (let k = 0; k < b.active; k++) if (!b.slots[k]) return k; return -1; };
+// the lot drive is used one way at a time: nobody pulls in while someone is pulling out, and the other way round
+const lotMoving = (b, phases) => cars.some(c => c.slotShop === b && phases.includes(c.phase));
+function releaseStall(car){ if (car.slot >= 0 && car.slotShop){ if (car.slotShop.slots[car.slot] === car) car.slotShop.slots[car.slot] = null; } car.slot = -1; car.slotShop = null; }
+// The way into a stall and back out of it. A straight bay: turn in off the drive, back out deeper, leave forward.
+// An angled bay leans towards the entrance: drive a little past it, hook in, back out deeper the same way.
+function parkPts(b, [us, vs, kind]){ const side = us < 1.5 ? -1 : 1;
+  if (kind === 'h') return [lanePt(b, 1.5, vs + 0.12, false), shopPt(b, 1.5 + side * 0.28, vs + 0.3), shopPt(b, us, vs)];
+  return [lanePt(b, 1.5, Math.max(0.3, vs - 0.36), false), shopPt(b, 1.5 + side * 0.36, vs), shopPt(b, us, vs)]; }
+function backPts(b, [us, vs, kind]){ const side = us < 1.5 ? -1 : 1;
+  if (kind === 'h') return [shopPt(b, 1.5 + side * 0.3, vs + 0.34), lanePt(b, 1.5, Math.min(b.depth - 0.08, vs + 0.58), true)];
+  return [shopPt(b, 1.5 + side * 0.36, vs + 0.03), lanePt(b, 1.5, Math.min(b.depth - 0.1, vs + 0.3), true)]; }
+function intoLot(car){ // drive up the middle and pull into the stall nose first
+  const b = car.target; car.passCar = null;
+  car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], ...parkPts(b, stallsOf(b)[car.slot])])); car.s = 0; car.phase = 'park'; car.rev = false;
+}
+function stepLot(car, dt){
+  const g = car.lot, vmax = VMAX * 0.42;
+  let blocked = false; const hx = Math.cos(car.ang), hy = Math.sin(car.ang);
+  for (const o of cars){ if (o === car || o.slotShop !== car.slotShop || !(o.phase === 'park' || o.phase === 'unpark' || o.phase === 'leave')) continue;
+    const dx = o.x - car.x, dy = o.y - car.y, f = dx * hx + dy * hy;
+    if (Math.cos(o.ang - car.ang) < -0.3) continue; // oncoming car keeps to its own lane
+    if (f > 0 && f < CAR_L * 1.15 && Math.abs(-dx * hy + dy * hx) < CAR_W * 1.1){ blocked = true; break; } }
+  if (!blocked) for (const o of cars){ if (o.phase !== 'go' || Math.abs(o.x - car.x) > CAR_L * 1.6 || Math.abs(o.y - car.y) > CAR_L * 1.6) continue;
+    const fx = car.x + hx * 8, fy = car.y + hy * 8; if (((o.x - car.x) * hx + (o.y - car.y) * hy) > 0 && Math.cos(o.ang - car.ang) > -0.3 && boxHit(fx, fy, car.da, o.x, o.y, o.da, 2)){ blocked = true; break; } }
+  const vt = blocked ? 0 : vmax; car.v += Math.max(-DEC * dt, Math.min(ACC * dt, vt - car.v));
+  { const q = samp(g, Math.min(1, (car.s + car.v * dt) / g.len)); if (car.v > 0 && wouldHit(car, q[0], q[1], car.rev ? q[2] + Math.PI : q[2])) car.v = 0; }
+  if (car.v < 1) car.stuck = (car.stuck || 0) + dt; else car.stuck = 0;
+  car.s += car.v * dt;
+  const t = Math.min(1, car.s / g.len), [x, y, a] = samp(g, t);
+  car.x = x; car.y = y; car.ang = a;
+  const face = car.rev ? a + Math.PI : a; let d = face - car.da; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; car.da += d * Math.min(1, dt * 14);
+  return t >= 1;
+}
+const spotFree = (x, y, me, ang) => !cars.some(o => o !== me && o.phase === 'go' && Math.hypot(o.x - x, o.y - y) < MIN_GAP + 2 && (ang === undefined || Math.cos(o.ang - ang) > 0.3)); // only traffic going the same way blocks a start
+function lotFull(car, k){
+  if (car.back || car.target.type !== 'shop') return false;
+  const sg = car.segs[k]; if (!sg) return false;
+  const last = k === car.segs.length - 1, door = car.target.doorCell;
+  const intoDoorCrossing = sg.cell === door && jGroup.has(door) && (car.si < 0 || car.segs[car.si].cell === -1 || jGroup.get(car.segs[car.si].cell) !== jGroup.get(door));
+  if (!last && !intoDoorCrossing) return false;
+  return freeStall(car.target) < 0 || lotMoving(car.target, ['unpark', 'leave']); }
+function goHome(car){
+  releaseStall(car); car.passCar = null;
+  if (!car.back && car.target && car.phase === 'go') car.target.reserved = Math.max(0, car.target.reserved - 1);
+  enterCell(car, -1); car.phase = 'home'; car.path = null; car.segs = null; car.x = cx(car.home.i); car.y = cy(car.home.i);
+}
+function arrive(car){
+  enterCell(car, -1); car.passCar = null;
+  if (!car.back){ const s = car.target; s.pins = Math.max(0, s.pins - 1); s.reserved = Math.max(0, s.reserved - 1); trips++;
+    car.phase = 'wait'; car.waitT = 0.9; car.x = cx(s.i); car.y = cy(s.i); }
+  else { car.phase = 'home'; car.path = null; car.segs = null; }
+}
+
+// ---------- simulation ----------
+const OFFERS = [
+  { k:'ring', n:2, t:'Кольцо ×2', d:'Большое кольцо 3×3: на перекрёстке не тормозят' },
+  { k:'hw', n:1, t:'Шоссе', d:'Прямая трасса поверх всего, вдвое быстрее' },
+  { k:'bridge', n:2, t:'Мост ×2', d:'Дорога через реку' },
+  { k:'roads', n:12, t:'+12 дорог', d:'Ещё клетки дороги' },
+  { k:'light', n:2, t:'Светофор ×2', d:'По очереди пускает направления на перекрёстке' },
+  { k:'tunnel', n:2, t:'Туннель ×2', d:'Дорога сквозь гору' } ];
+function syncOffers(){ const o = OFFERS.find(x => x.k === 'roads'); o.n = T.offerRoads; o.t = `+${T.offerRoads} дорог`; }
+let offerKeys = null;
+function newWeek(){
+  week++; budget += T.weekRoads; growArea();
+  showOffers(OFFERS.filter(o => o.k !== 'tunnel' || mount.size).sort(() => Math.random() - 0.5).slice(0, 2).map(o => o.k));
+}
+function showOffers(keys){
+  choosing = true; offerKeys = keys; syncOffers(); $('weekRoads').textContent = T.weekRoads;
+  const pool = keys.map(k => OFFERS.find(o => o.k === k));
+  $('weekTitle').textContent = `Неделя ${week}`;
+  const box = $('offers'); box.innerHTML = '';
+  for (const o of pool){ const b = document.createElement('button'); b.type = 'button';
+    b.innerHTML = `<span>${o.t}</span><small>${o.d}</small>`;
+    b.onclick = () => { if (o.k === 'ring') ringN += o.n; else if (o.k === 'hw') hwN += o.n; else if (o.k === 'bridge') bridgesN += o.n; else if (o.k === 'light') lightN += o.n; else if (o.k === 'tunnel') tunnelsN += o.n; else budget += o.n;
+      choosing = false; offerKeys = null; $('weekBox').hidden = true; saveSoon(); };
+    box.appendChild(b); }
+  $('weekBox').hidden = false;
+}
+function tick(dt){
+  if (over || paused || choosing || menuOpen) return;
+  if (tutHold()){ for (const b of bld.values()) b.t += dt; buildGroups(); dispatch(dt); for (const car of cars) stepCar(car, dt); return; } // the clock waits for the first road
+  time += dt;
+  for (const b of bld.values()){ b.t += dt;
+    if (b.type === 'shop'){ b.pinT -= dt;
+      if (!b.lvl && b.t > T.grow){ b.lvl = 1; b.growT = 0; if (!quiet) sfx('shop'); } // a shop that has stood a while grows: holds more and orders more often
+      if (b.growT !== undefined) b.growT += dt;
+      if (b.pinT <= 0){ b.pins = Math.min(capOf(b), b.pins + 1); b.pinT = (T.pinBase + Math.random() * T.pinRand) * Math.max(T.rampFloor, 1 - time / T.ramp) * rateOf(b); }
+      if (b.pins >= capOf(b)){ if (Math.floor(b.overT / 3.5) !== Math.floor((b.overT + dt) / 3.5) || b.overT === 0) sfx('alarm'); b.overT += dt; if (b.overT >= T.overflow){ over = true; $('over').hidden = false; $('overTime').textContent = fmt(time); $('overTrips').textContent = trips; gameOver(); } }
+      else b.overT = Math.max(0, b.overT - dt * 2);
+    } }
+  spawnHouseT -= dt; spawnShopT -= dt;
+  if (spawnHouseT <= 0){ const c = neediestColor(), mates = [...bld.values()].filter(b => b.type === 'house' && b.color === c); // new houses join a neighbourhood of their colour
+    let i = mates.length && Math.random() < 0.8 ? spotNear(mates[Math.floor(Math.random() * mates.length)].i) : -1; if (i < 0) i = freeSpot();
+    if (i >= 0) place(i, 'house', c); spawnHouseT = T.house + Math.random() * T.houseRand; }
+  if (spawnShopT <= 0){
+    let c = Math.floor(Math.random() * colorsInPlay), fresh = false;
+    if (colorsInPlay < 4 && Math.random() < 0.5){ c = colorsInPlay; fresh = true; }
+    let done = false;
+    for (let t = 0; t < 8 && !done; t++){ const i = freeSpot(); if (i < 0 || !place(i, 'shop', c)) continue;
+      // a shop never stands without its own houses: it always brings at least one close by (a new colour brings two)
+      const sb = [...bld.values()].pop(), h1 = spotNear(sb.i);
+      if (h1 < 0){ unplaceShop(sb); continue; }
+      sfx('shop'); quiet = true; place(h1, 'house', c); if (fresh){ const h2 = spotNear(sb.i); if (h2 >= 0) place(h2, 'house', c); colorsInPlay++; } quiet = false;
+      done = true; }
+    spawnShopT = done ? T.shop + Math.random() * T.shopRand : 3; }
+  buildGroups(); stepLights(dt); stepDying(); dispatch(dt);
+  for (const car of cars) stepCar(car, dt);
+  weekT -= dt; if (weekT <= 0){ weekT += WEEK; newWeek(); }
+}
+const fmt = s => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, '0')}`;
+
+// ---------- drawing ----------
+function resize(){
+  dpr = Math.min(2, devicePixelRatio || 1); W = cv.clientWidth; Hh = cv.clientHeight;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(Hh * dpr);
+  placeCamera(true);
+}
+// The camera frames the open play area and glides out as it grows.
+function placeCamera(snap, dt){
+  const want = { x: area.c0 * CELL, y: area.r0 * CELL, w: (area.c1 - area.c0) * CELL, h: (area.r1 - area.r0) * CELL };
+  if (!view || snap) view = { ...want };
+  else { const k = Math.min(1, (dt || 0) * 2.2); for (const key of ['x', 'y', 'w', 'h']) view[key] += (want[key] - view[key]) * k; }
+  const dock = document.querySelector('.dock'), padB = (dock ? dock.offsetHeight : 48) + 18; // room for the tool dock
+  const fit = Math.min(W / (view.w + 16), (Hh - padB) / (view.h + 16)); scale = fit * uz; viewH = Hh - padB;
+  // the player's zoom and pan sit on top of the framing, and never let the map slide out of sight
+  const hw2 = W / scale / 2, hh2 = viewH / scale / 2, mx = view.x + view.w / 2, my = view.y + view.h / 2;
+  const lim = (v, half, size) => size / 2 > half ? Math.max(-(size / 2 - half), Math.min(size / 2 - half, v)) : 0;
+  pan.x = lim(pan.x, hw2, view.w + 16); pan.y = lim(pan.y, hh2, view.h + 16);
+  offX = W / 2 - (mx + pan.x) * scale; offY = viewH / 2 - (my + pan.y) * scale;
+}
+let uz = 1, pan = { x: 0, y: 0 }, viewH = 0;
+function zoomAt(sx, sy, factor){ // keep the map point under the finger or cursor where it is
+  const wx = (sx - offX) / scale, wy = (sy - offY) / scale; uz = Math.max(1, Math.min(3, uz * factor));
+  placeCamera(false, 0);
+  const mx = view.x + view.w / 2, my = view.y + view.h / 2;
+  pan.x = (W / 2 - (sx - wx * scale)) / scale - mx; pan.y = (viewH / 2 - (sy - wy * scale)) / scale - my;
+  if (uz === 1){ pan.x = 0; pan.y = 0; } placeCamera(false, 0); }
+function panBy(dx, dy){ pan.x -= dx / scale; pan.y -= dy / scale; placeCamera(false, 0); }
+function rr(x, y, w, h, r){ ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+const edgeBorn = new Map(), GROW = 180; // ms for a new piece of road to grow out from both cells
+function growOf(i, j){ const k = i < j ? i + ',' + j : j + ',' + i, t0 = edgeBorn.get(k); if (t0 === undefined) return 1;
+  const f = (performance.now() - t0) / GROW; if (f >= 1){ edgeBorn.delete(k); return 1; } return 1 - Math.pow(1 - f, 3); }
+function strokeCell(i){
+  const nb2 = [...eOf(i)].filter(j => !dying.has(ekey(i, j))), n = nb2.map(j => dir8(i, j)), C = [cx(i), cy(i)];
+  const tip = (k) => { const e = mid(i, n[k]), f = growOf(i, nb2[k]); return [C[0] + (e[0] - C[0]) * f, C[1] + (e[1] - C[1]) * f]; };
+  ctx.beginPath();
+  if (n.length === 2 && n[0] !== OPP8(n[1])){ const a = tip(0), b = tip(1); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo(C[0], C[1], b[0], b[1]); }
+  else if (n.length === 0){ ctx.moveTo(C[0], C[1]); ctx.lineTo(C[0] + 0.01, C[1]); }
+  else for (let k = 0; k < n.length; k++){ const e = tip(k); ctx.moveTo(C[0], C[1]); ctx.lineTo(e[0], e[1]); }
+  ctx.stroke();
+}
+let waterImg = null, waterTheme = '';
+// The whole ground is baked once per map and theme: soft patches of meadow and warm earth, sandy banks with a wet line,
+// and water that is light at the shore and deep in the middle, with the bank's shadow on the upper-left side (light comes from the top left).
+function bakeWater(){
+  const Wp = cols * CELL, Hp = rows * CELL, f = 2, w = Math.ceil(Wp / f), h = Math.ceil(Hp / f), a = new Float32Array(w * h);
+  for (const i of water){ const x0 = col_(i) * CELL / f, y0 = row_(i) * CELL / f; for (let y = y0; y < y0 + CELL / f; y++) for (let x = x0; x < x0 + CELL / f; x++) a[y * w + x] = 1; }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){ if (x === 0 || y === 0 || x === w - 1 || y === h - 1){ const c = Math.min(cols - 1, Math.floor(x * f / CELL)), r = Math.min(rows - 1, Math.floor(y * f / CELL)); a[y * w + x] = water.has(idx(c, r)) ? 1 : 0; } }
+  const tmp = new Float32Array(w * h), pass = (src, dst, dx, dy, R) => { for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){ let s = 0, n = 0;
+    for (let k = -R; k <= R; k++){ const xx = Math.min(w - 1, Math.max(0, x + dx * k)), yy = Math.min(h - 1, Math.max(0, y + dy * k)); s += src[yy * w + xx]; n++; } dst[y * w + x] = s / n; } };
+  const raw = a.slice(), dp = a.slice();
+  const mm = new Float32Array(w * h); for (const i of mount){ const x0 = col_(i) * CELL / f, y0 = row_(i) * CELL / f; for (let y = y0; y < y0 + CELL / f; y++) for (let x = x0; x < x0 + CELL / f; x++) mm[y * w + x] = 1; }
+  const mh = mm.slice(); if (mount.size){ for (let it = 0; it < 3; it++){ pass(mm, tmp, 1, 0, 5); pass(tmp, mm, 0, 1, 5); } for (let it = 0; it < 3; it++){ pass(mh, tmp, 1, 0, 13); pass(tmp, mh, 0, 1, 13); } }
+  for (let it = 0; it < 3; it++){ pass(a, tmp, 1, 0, 6); pass(tmp, a, 0, 1, 6); }          // shoreline field
+  for (let it = 0; it < 3; it++){ pass(dp, tmp, 1, 0, 16); pass(tmp, dp, 0, 1, 16); }      // depth field: how far into the water
+  // low, smooth noise for ground patches (same every time for a map)
+  let seed = 0; for (const ch of mapId + ':' + water.size) seed = (seed * 31 + ch.charCodeAt(0)) | 0;
+  const hash = (x, y) => { let t = (x * 374761393 + y * 668265263 + seed * 2246822519) | 0; t = Math.imul(t ^ (t >>> 13), 1274126177); return ((t ^ (t >>> 16)) >>> 0) / 4294967296; };
+  const sm = t => t * t * (3 - 2 * t), vnoise = (x, y) => { const xi = Math.floor(x), yi = Math.floor(y), fx = sm(x - xi), fy = sm(y - yi);
+    const v00 = hash(xi, yi), v10 = hash(xi + 1, yi), v01 = hash(xi, yi + 1), v11 = hash(xi + 1, yi + 1); return (v00 * (1 - fx) + v10 * fx) * (1 - fy) + (v01 * (1 - fx) + v11 * fx) * fy; };
+  const nM = new Float32Array(w * h), nW = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){ const X = x * f / CELL, Y = y * f / CELL;
+    nM[y * w + x] = vnoise(X / 3.2, Y / 3.2) * 0.7 + vnoise(X / 1.3 + 50, Y / 1.3) * 0.3; nW[y * w + x] = vnoise(X / 4.5 + 100, Y / 4.5 + 7); }
+  const OS = 1.5, W2 = Math.round(Wp * OS), H2 = Math.round(Hp * OS), k2f = 1 / (f * OS);
+  const can = document.createElement('canvas'); can.width = W2; can.height = H2; const g = can.getContext('2d'), img = g.createImageData(W2, H2), D = img.data;
+  const rk = rgb(P.rock), rh = rgb(P.rockHi), rs = rgb(P.rockSh), C = k => rgb(P[k]), gr = C('ground'), me = C('meadow'), wa = C('warm'), sa = C('sand'), sd = C('sandDk'), we = C('wet'), sh = C('shallow'), wt = C('water'), de = C('deep');
+  const mix = (o, p, q, t) => { o[0] = p[0] + (q[0] - p[0]) * t; o[1] = p[1] + (q[1] - p[1]) * t; o[2] = p[2] + (q[2] - p[2]) * t; return o; };
+  const cl = t => t < 0 ? 0 : t > 1 ? 1 : t, o = [0, 0, 0], o2 = [0, 0, 0];
+  const bil = (F, X, Y) => { const x0 = Math.max(0, Math.min(w - 1, Math.floor(X))), y0 = Math.max(0, Math.min(h - 1, Math.floor(Y))), x1 = Math.min(w - 1, x0 + 1), y1 = Math.min(h - 1, y0 + 1);
+    const fx = cl(X - x0), fy = cl(Y - y0); return (F[y0 * w + x0] * (1 - fx) + F[y0 * w + x1] * fx) * (1 - fy) + (F[y1 * w + x0] * (1 - fx) + F[y1 * w + x1] * fx) * fy; };
+  for (let k = 0; k < W2 * H2; k++){ const X = (k % W2 + 0.5) * k2f - 0.5, Y = ((k / W2 | 0) + 0.5) * k2f - 0.5;
+    const v = bil(a, X, Y), mv = mount.size ? bil(mm, X, Y) : 0;
+    if (mv > 0.47 && v < 0.5){ // mountain: lit from the top left, terraced like a map, a soft dark foot
+      const ht = bil(mh, X, Y) + (Math.sin(X * 0.21) * Math.sin(Y * 0.17)) * 0.05, sh = (bil(mh, X - 2.5, Y - 2.5) - bil(mh, X + 2.5, Y + 2.5)) * 14 + (Math.sin(X * 0.21 - 0.6) * Math.sin(Y * 0.17 - 0.6) - Math.sin(X * 0.21 + 0.6) * Math.sin(Y * 0.17 + 0.6)) * 0.5;
+      mix(o, rk, sh > 0 ? rh : rs, Math.min(1, Math.abs(sh)) * 0.9); // the slope facing the light is bright, the far one dark
+      const band = ht * 8 - Math.floor(ht * 8); if (ht > 0.25 && band < 0.06) mix(o, o, rs, 0.3); // contour lines
+      if (ht > 0.88) mix(o, o, [255, 255, 255], cl((ht - 0.88) * 8) * 0.8); // snow on the tops
+      mix(o, o, rs, cl(1 - (mv - 0.47) / 0.06) * 0.6);
+    } else if (v < 0.5){ // land: patches, then a grassy then sandy band toward the water
+      const m = cl((bil(nM, X, Y) - 0.45) * 3.2), wm = cl((bil(nW, X, Y) - 0.55) * 3);
+      mix(o, gr, me, m * 0.85); mix(o, o, wa, wm * 0.7);
+      mix(o, o, me, cl((v - 0.18) / 0.2) * 0.9);                              // greener near the river
+      mix(o2, sa, sd, cl((v - 0.42) / 0.07)); mix(o, o, o2, cl((v - 0.35) / 0.04));   // sand, darker where it gets wet
+      mix(o, o, we, cl((v - 0.485) / 0.015));                                 // the waterline
+    } else { // water: light shallows to deep middle, bank shadow on the upper-left side, a pale lip at the shore
+      const d = cl((bil(dp, X, Y) - 0.45) / 0.45);
+      mix(o, sh, wt, cl((v - 0.5) / 0.22)); mix(o, o, de, sm(d) * 0.85);
+      const vs = bil(a, X - 2.2, Y - 3.0); if (vs < 0.5) mix(o, o, de, cl((0.5 - vs) / 0.25) * 0.55);
+      mix(o, o, we, cl(1 - (v - 0.5) / 0.012) * 0.9); }
+    D[k * 4] = o[0]; D[k * 4 + 1] = o[1]; D[k * 4 + 2] = o[2]; D[k * 4 + 3] = 255; }
+  g.putImageData(img, 0, 0);
+  // a few soft ripples on open water
+  g.save(); g.scale(OS, OS); g.lineCap = 'round'; g.strokeStyle = 'rgba(255,255,255,0.22)'; g.lineWidth = 1.3;
+  let r = seed >>> 0; const rnd = () => (r = (Math.imul(r, 1664525) + 1013904223) >>> 0) / 4294967296;
+  for (const i of water){ if (rnd() > 0.35) continue; const x = col_(i) * CELL + rnd() * CELL, y = row_(i) * CELL + rnd() * CELL;
+    if (bil(a, x / f, y / f) < 0.85) continue; const L = 5 + rnd() * 6;
+    g.beginPath(); g.moveTo(x - L, y); g.quadraticCurveTo(x - L / 2, y - 2.2, x, y); g.quadraticCurveTo(x + L / 2, y + 2.2, x + L, y); g.stroke(); }
+  g.restore();
+  waterImg = can; waterTheme = P.water + mount.size; }
+const inTunnel = car => { const g = car.segs[car.si]; return g && g.cell >= 0 && mount.has(g.cell); };
+function drawTunnels(){ // a dark mouth with a stone arch where a road goes into the mountain
+  for (const [i] of tunnelOf) for (const j of eOf(i)){ if (mount.has(j)) continue; const d = dir8(i, j), e = mid(i, d), a = Math.atan2(D8[d][1], D8[d][0]);
+    ctx.save(); ctx.translate(e[0], e[1]); ctx.rotate(a - Math.PI / 2);
+    ctx.fillStyle = P.roadEdge; rr(-CELL * 0.36, -4, CELL * 0.72, 8, 3); ctx.fill(); // the road running in
+    ctx.fillStyle = P.rockSh; ctx.beginPath(); ctx.arc(0, 0, CELL * 0.38, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#2a2824'; ctx.beginPath(); ctx.arc(0, 1, CELL * 0.27, Math.PI, 0); ctx.fill();
+    ctx.restore(); } }
+function drawTrees(){ // round crowns with a shadow, two or three to a cell, set by the cell's number so they never jump
+  for (const [i, n] of trees){ if (roads.has(i) || occ.has(i) || !inPlay(i)) continue;
+    for (let k = 0; k < n; k++){ const hsh = (i * 73 + k * 151) % 997 / 997, hs2 = (i * 37 + k * 211) % 991 / 991;
+      const x = cx(i) + (hsh - 0.5) * CELL * 0.62, y = cy(i) + (hs2 - 0.5) * CELL * 0.62, r = CELL * (0.13 + 0.06 * ((hsh + hs2) % 1));
+      ctx.fillStyle = P.shadow; ctx.beginPath(); ctx.ellipse(x + 3, y + 4, r, r * 0.8, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = P.treeDk; ctx.beginPath(); ctx.arc(x, y + 1.5, r, 0, 7); ctx.fill();
+      ctx.fillStyle = P.tree; ctx.beginPath(); ctx.arc(x - r * 0.12, y - r * 0.1, r * 0.82, 0, 7); ctx.fill(); } } }
+function drawWater(){
+  if (!waterImg || waterTheme !== P.water + mount.size) bakeWater();
+  ctx.imageSmoothingEnabled = true; ctx.drawImage(waterImg, 0, 0, cols * CELL, rows * CELL); }
+function hwPath(h, f){ ctx.beginPath(); h.smp.forEach((q, n) => { const p = f(q); n ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); }); }
+function drawHwShadow(h){
+  ctx.strokeStyle = P.shadow; ctx.lineWidth = CELL * 0.5; hwPath(h, q => [q.x + q.ht * 0.6, q.y + q.ht * 0.8]); ctx.stroke();
+  ctx.fillStyle = P.pillar; // pillars stand on the ground, never on a roof
+  for (let n = 3; n < h.smp.length - 3; n += 5){ const q = h.smp[n]; if (q.ht < 5 || q.over) continue; ctx.fillRect(q.x - 1.5, q.y, 3, q.ht * 0.8); }
+}
+const rgb = c => { const m = /^#([0-9a-f]{6})$/i.exec(c.trim()); if (!m) return [255, 255, 255]; const v = parseInt(m[1], 16); return [v >> 16, (v >> 8) & 255, v & 255]; };
+const mixC = (a, b, f) => { const x = rgb(a), y = rgb(b); return `rgb(${x.map((v, k) => Math.round(v + (y[k] - v) * f)).join(',')})`; };
+const smooth01 = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+function drawHwDeck(h){
+  const sm = h.smp, L = sm.length - 1, K = Math.max(2, Math.round(L * 0.18));
+  const rgba = (c, al) => { const v = rgb(c); return `rgba(${v[0]},${v[1]},${v[2]},${al})`; };
+  const part = (from, to) => { ctx.beginPath(); const st = from < to ? 1 : -1; for (let n = from; n !== to + st; n += st){ const q = sm[n]; n === from ? ctx.moveTo(q.x, q.y) : ctx.lineTo(q.x, q.y); } };
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  // the whole deck in yellow, then each end washed over with a road-coloured gradient that fades out along the ramp, so the join has no seam
+  for (const [wr, wh, cr, ch, outline] of [[CELL * 0.66, CELL * 0.62, P.roadEdge, P.hwEdge, true], [CELL * 0.54, CELL * 0.52, P.road, P.hw, false]]){
+    ctx.save();
+    if (outline){ // no outline inside the joint itself: white meets white without a seam
+      ctx.beginPath(); ctx.rect(-1e4, -1e4, 2e4, 2e4);
+      for (const e of [0, L]){ ctx.moveTo(sm[e].x + CELL * 0.3, sm[e].y); ctx.arc(sm[e].x, sm[e].y, CELL * 0.3, 0, Math.PI * 2); }
+      ctx.clip('evenodd'); }
+    ctx.strokeStyle = ch; ctx.lineWidth = wh; ctx.lineCap = 'butt'; part(0, L); ctx.stroke(); ctx.lineCap = 'round';
+    for (const [e, m] of [[0, K], [L, L - K]]){ const g = ctx.createLinearGradient(sm[e].x, sm[e].y, sm[m].x, sm[m].y);
+      g.addColorStop(0, rgba(cr, 1)); g.addColorStop(0.25, rgba(cr, 0.92)); g.addColorStop(1, rgba(cr, 0));
+      ctx.strokeStyle = g; ctx.lineWidth = wr; ctx.lineCap = 'butt'; part(e, m); ctx.stroke(); ctx.lineCap = 'round';
+      if (!outline){ ctx.fillStyle = rgba(cr, 1); ctx.beginPath(); ctx.arc(sm[e].x, sm[e].y, wr / 2, 0, 7); ctx.fill(); } }
+    ctx.restore(); }
+  ctx.strokeStyle = P.hwLine; ctx.lineWidth = 1.5; ctx.setLineDash([6, 7]); part(K, L - K); ctx.stroke(); ctx.setLineDash([]);
+}
+function stallBays(b){ // the painted lines between bays: for each bay two sides along the way the car stands
+  const st = stallsOf(b), out = [], seen = new Set();
+  for (const q of st){ const [us, vs, kind] = q, side = us < 1.5 ? -1 : 1;
+    let h = kind === 'h' ? [side * 0.48, -0.3] : [side, 0]; const n = Math.hypot(h[0], h[1]); h = [h[0] / n, h[1] / n];
+    const same = st.filter(o => (o[0] < 1.5) === (us < 1.5) && o[2] === kind).map(o => o[1]).sort((a, c) => a - c);
+    const pitch = same.length > 1 ? same[1] - same[0] : 0.46;
+    for (const sgn of [-1, 1]){ const cx0 = us, cy0 = vs + pitch / 2 * sgn, key = Math.round(cx0 * 20) + ',' + Math.round(cy0 * 20); // shared with the next bay
+      if (seen.has(key)) continue; seen.add(key);
+      out.push([cx0 - h[0] * 0.34, cy0 - h[1] * 0.34, cx0 + h[0] * 0.32, cy0 + h[1] * 0.32]); } }
+  return out; }
+function boxOf(b, u0, v0, u1, v1, pad){ const a = shopPt(b, u0, v0), c = shopPt(b, u1, v1);
+  return [Math.min(a[0], c[0]) + pad, Math.min(a[1], c[1]) + pad, Math.abs(c[0] - a[0]) - pad * 2, Math.abs(c[1] - a[1]) - pad * 2]; }
+function drawShop(b, colr, dk, e){
+  const T0 = SHOP_TYPES[b.size], [lu0, lv0, lu1, lv1] = T0.lot;
+  ctx.save(); const C = shopCenter(b); ctx.translate(C[0], C[1]); ctx.scale(e, e); ctx.translate(-C[0], -C[1]);
+  // parking lot: white pad, bay lines off the drive
+  const D = b.depth, L = boxOf(b, lu0, lv0, lu1, lv1 + 0.02, 3);
+  ctx.fillStyle = P.road; rr(L[0], L[1], L[2], L[3], 9); ctx.fill();
+  ctx.strokeStyle = colr; ctx.globalAlpha = 0.5; ctx.lineWidth = 2.5; rr(L[0] + 1.2, L[1] + 1.2, L[2] - 2.4, L[3] - 2.4, 8); ctx.stroke();
+  ctx.globalAlpha = 1; const g0 = shopPt(b, 1.5, 0); ctx.fillStyle = P.road; ctx.beginPath(); ctx.arc(g0[0], g0[1], CELL * 0.26, 0, 7); ctx.fill(); // gap where the drive opens
+  ctx.strokeStyle = colr; ctx.globalAlpha = 0.45; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  for (const [u0, v0, u1, v1] of stallBays(b)){ const a = shopPt(b, u0, v0), c = shopPt(b, u1, v1); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(c[0], c[1]); ctx.stroke(); }
+  ctx.globalAlpha = 1; ctx.strokeStyle = P.roadEdge; ctx.lineWidth = 1.6;
+  for (const u of [1.5 - 0.3, 1.5 + 0.3]){ const a = shopPt(b, u, 0.02), c = shopPt(b, u, D); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(c[0], c[1]); ctx.stroke(); }
+  ctx.strokeStyle = colr; ctx.globalAlpha = 0.45; ctx.lineWidth = 2;
+  ctx.globalAlpha = 1; ctx.restore();
+}
+// The shop building: about twice as tall as a house. The roof is lifted by SHOP_H, the front wall shows below it,
+// and it is drawn after the ground cars, so a tall roof covers what stands right behind it.
+const SHOP_H = 11;
+function shopCenter(b){ const T0 = SHOP_TYPES[b.size]; let u0 = 9, v0 = 9, u1 = -9, v1 = -9;
+  for (const r of [T0.lot, ...T0.bld]){ u0 = Math.min(u0, r[0]); v0 = Math.min(v0, r[1]); u1 = Math.max(u1, r[2]); v1 = Math.max(v1, r[3]); }
+  return shopPt(b, (u0 + u1) / 2, (v0 + v1) / 2); }
+function roofMid(b){ const r = SHOP_TYPES[b.size].bld[0]; return shopPt(b, (r[0] + r[2]) / 2, (r[1] + r[3]) / 2); } // the main wing carries the sign and the orders
+function drawShopBody(b){
+  const colr = P.col[b.color], dk = P.dark[b.color], pop = Math.min(1, b.t / 0.35), e = 1 - Math.pow(1 - pop, 3);
+  ctx.save(); const C = shopCenter(b); ctx.translate(C[0], C[1]); ctx.scale(e, e); ctx.translate(-C[0], -C[1]);
+  const Bs = SHOP_TYPES[b.size].bld.map(r => boxOf(b, r[0], r[1], r[2], r[3], 3)), g01 = b.lvl ? Math.min(1, (b.growT || 9) / 0.6) : 0, H = (b.size === 'square' ? SHOP_H + 2 : SHOP_H) + 6 * (1 - Math.pow(1 - g01, 3)); // a grown shop gets a floor more
+  ctx.fillStyle = P.shadow; for (const B of Bs){ rr(B[0] + H * 0.7, B[1] + H * 0.5, B[2], B[3], 8); ctx.fill(); }
+  ctx.fillStyle = dk; for (const B of Bs){ rr(B[0], B[1] - H, B[2], B[3] + H, 8); ctx.fill(); }
+  ctx.fillStyle = 'rgba(255,255,255,0.12)'; for (const B of Bs){ const n = Math.max(2, Math.round(B[2] / 20)); for (let k = 1; k < n; k++){ const x = B[0] + B[2] * k / n; ctx.fillRect(x - 0.6, B[1] + B[3] - H + 1, 1.2, H - 3); } } // wall panels
+  ctx.fillStyle = colr; for (const B of Bs){ rr(B[0], B[1] - H, B[2], B[3], 8); ctx.fill(); }
+  if (Bs.length > 1) for (const B of Bs) ctx.fillRect(B[0] + 8, B[1] - H + 8, B[2] - 16, B[3] - 16); // an L-shaped roof is one roof: no seam where the wings meet
+  if (b.lvl){ ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 2; for (const B of Bs){ rr(B[0] + 4, B[1] - H + 4, B[2] - 8, B[3] - 8, 6); ctx.stroke(); } } // grown: a parapet round the roof
+  const m = roofMid(b); if (!b.pins){ ctx.fillStyle = P.pin; rr(m[0] - 8, m[1] - 8 - H, 16, 16, 4); ctx.fill(); } // the roof sign gives way to the order chips
+  ctx.restore(); }
+// A car already on the ramp (the road piece just before or after a highway) is drawn with that highway, so it rides onto the deck instead of slipping under its end.
+function carHw(car){ const g = car.segs[car.si]; if (g.h) return g.h; const n = car.segs[car.si + 1], p = car.segs[car.si - 1];
+  return (n && n.h) || (p && p.h) || null; }
+// An order chip: a coin in the shop's colour with a little white car on it. Dim = a car is already on its way for it.
+const CHIP_R = 7, CHIP_LIFT = 13; // chips float this far above the roof; their shadows lie on it
+function roofChip(b, k, n){ const r = SHOP_TYPES[b.size].bld[0], B = boxOf(b, r[0], r[1], r[2], r[3], 3), wide = B[2] > B[3] * 1.3, per = wide ? 4 : B[2] < B[3] / 1.3 ? 2 : 3, step = CHIP_R * 2 + 2;
+  const rows = Math.ceil(n / per), row = Math.floor(k / per), inRow = Math.min(per, n - row * per), col = k % per;
+  const mx = B[0] + B[2] / 2, my = B[1] + B[3] / 2 - SHOP_H - CHIP_LIFT;
+  return [mx + (col - (inRow - 1) / 2) * step, my + (row - (rows - 1) / 2) * step]; }
+function drawChip(x, y, r, color, dim){ // a white coin with a dark cup: never blends with the shop's colour
+  ctx.globalAlpha = dim ? 0.55 : 1;
+  ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.arc(x, y + 1.2, r, 0, 7); ctx.fill();
+  ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, r - 0.5, 0, 7); ctx.stroke();
+  const ink = '#2a2824', w = r * 0.9, h = r * 0.8, cx0 = x - r * 0.1, top = y - h * 0.45;
+  ctx.fillStyle = ink; ctx.beginPath(); ctx.moveTo(cx0 - w / 2, top); ctx.lineTo(cx0 + w / 2, top);
+  ctx.lineTo(cx0 + w * 0.36, top + h); ctx.lineTo(cx0 - w * 0.36, top + h); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = ink; ctx.lineWidth = r * 0.17; ctx.beginPath(); ctx.arc(cx0 + w * 0.5, top + h * 0.38, h * 0.26, -Math.PI / 2, Math.PI / 2); ctx.stroke();
+  ctx.globalAlpha = 1; }
+let flies = [];
+function launchChip(s){ // the delivered order leaves the shop and flies up to the counter
+  const [x0, y0] = roofChip(s, s.pins, s.pins + 1);
+  const sc = $('score').getBoundingClientRect(), cr = cv.getBoundingClientRect();
+  const x1 = (sc.left + 14 - cr.left - offX) / scale, y1 = (sc.top + sc.height / 2 - cr.top - offY) / scale;
+  flies.push({ x0, y0, x1, y1, cx: (x0 + x1) / 2 + (x0 < x1 ? -40 : 40), cy: Math.min(y0, y1) - 60, t: 0, dur: 0.75, color: s.color }); }
+function stepFlies(dt){ for (const f of flies) f.t += dt;
+  const done = flies.filter(f => f.t >= f.dur); if (done.length){ flies = flies.filter(f => f.t < f.dur); bumpScore();
+    const shown = trips - flies.length; if (Math.floor(shown / 10) > Math.floor((shown - done.length) / 10)) sfx('chip10'); } } // a sound only on every tenth order
+let bumpT = null; function bumpScore(){ const el = $('score'); el.classList.add('bump'); clearTimeout(bumpT); bumpT = setTimeout(() => el.classList.remove('bump'), 160); }
+function drawCar(car){
+  ctx.save(); ctx.translate(car.x + (car.ox || 0), car.y + (car.oy || 0)); ctx.rotate(car.da);
+  ctx.fillStyle = P.shadow; rr(-CAR_L/2 + 1, -CAR_W/2 + 2, CAR_L, CAR_W, 4); ctx.fill();
+  ctx.fillStyle = P.col[car.color]; rr(-CAR_L/2, -CAR_W/2, CAR_L, CAR_W, 4); ctx.fill();
+  ctx.fillStyle = P.win; rr(CAR_L * 0.06, -CAR_W * 0.34, CAR_L * 0.2, CAR_W * 0.68, 2); ctx.fill();
+  ctx.restore();
+}
+function draw(){
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, Hh);
+  ctx.translate(offX, offY); ctx.scale(scale, scale);
+  ctx.save(); rr(view.x, view.y, view.w, view.h, 14); ctx.clip(); // nothing outside the open area is drawn
+  ctx.save();
+  ctx.fillStyle = P.ground; ctx.fillRect(view.x, view.y, view.w, view.h); drawWater(); // ground, banks and water in one baked picture
+  ctx.fillStyle = P.dot; for (let r = area.r0; r < area.r1; r++) for (let c = area.c0; c < area.c1; c++){ if (water.has(idx(c, r))) continue; ctx.beginPath(); ctx.arc(c * CELL + H, r * CELL + H, 1.6, 0, 7); ctx.fill(); }
+  // guide grid: fades in while a road is being drawn, so every cell and its 45° neighbours are easy to aim at
+  if (GRID_GUIDE && gridA > 0.01){ ctx.globalAlpha = gridA; ctx.strokeStyle = P.grid; ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
+    ctx.beginPath(); for (let c = 1; c < cols; c++){ ctx.moveTo(c * CELL, 0); ctx.lineTo(c * CELL, rows * CELL); } for (let r = 1; r < rows; r++){ ctx.moveTo(0, r * CELL); ctx.lineTo(cols * CELL, r * CELL); }
+    ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
+  ctx.restore();
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  // bridge decks
+  ctx.strokeStyle = P.bridge; ctx.lineWidth = CELL * 0.80;
+  for (const i of bridgeOf.keys()) strokeCell(i);
+  // roads
+  for (const [wd, colr] of [[CELL * 0.66, P.roadEdge], [CELL * 0.54, P.road]]){
+    ctx.strokeStyle = colr; ctx.lineWidth = wd;
+    for (const b of bld.values()){ const e = mid(b.i, d4to8(b.door)); ctx.beginPath(); ctx.moveTo(cx(b.i), cy(b.i)); ctx.lineTo(e[0], e[1]); ctx.stroke(); }
+    for (const i of roads) if (!mount.has(i)) strokeCell(i);
+  }
+  drawTunnels();
+  if (dying.size){ ctx.save(); ctx.globalAlpha = 0.4; ctx.setLineDash([5, 6]); // an erased road still in use: faded and dashed until the cars on it are through
+    for (const [wd, colr] of [[CELL * 0.6, P.roadEdge], [CELL * 0.48, P.road]]){ ctx.strokeStyle = colr; ctx.lineWidth = wd; ctx.beginPath();
+      for (const k of dying){ const [a, b] = k.split(',').map(Number); ctx.moveTo(cx(a), cy(a)); ctx.lineTo(cx(b), cy(b)); } ctx.stroke(); }
+    ctx.restore(); }
+  // traffic lights: a ring in the middle, and for each approach a lamp on the far side of the crossing
+  for (const [i, L] of lights){ const x = cx(i), y = cy(i);
+    for (const j of eOf(i)){ const d = dir8(i, j); if (d < 0) continue; const v = D8[d], l = Math.hypot(v[0], v[1]), hx = -v[0] / l, hy = -v[1] / l; // heading of a car coming from j
+      const px = x + hx * CELL * 0.5 - hy * CELL * 0.34, py = y + hy * CELL * 0.5 + hx * CELL * 0.34;
+      const go = L.clear <= 0 && L.g === lightAxis(i, j), col = go ? P.lampGo : P.lampStop;
+      ctx.globalAlpha = 0.28; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(px, py, 5.5, 0, 7); ctx.fill();
+      ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(px, py, 3.2, 0, 7); ctx.fill(); }
+    ctx.fillStyle = P.road; ctx.strokeStyle = P.lampRing; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.arc(x, y, CELL * 0.15, 0, 7); ctx.fill(); ctx.stroke(); }
+  // roundabouts: one big circle filling the 3×3 square; each arm flares smoothly into its rim, an island with the ring sign in the middle
+  for (const i of rings){ const x = cx(i), y = cy(i), arms = [...eOf(i)].map(j => { const v = D8[dir8(i, j)], l = Math.hypot(v[0], v[1]); return [v[0] / l, v[1] / l]; });
+    const flare = (a, w, col, R, far) => { const px = -a[1], py = a[0], hw = w / 2, sp = 10, d1 = R + far, th = Math.atan2(a[1], a[0]), ph = Math.asin(Math.min(0.98, (hw + sp) / R));
+      const e1 = [x + Math.cos(th + ph) * R, y + Math.sin(th + ph) * R], e2 = [x + Math.cos(th - ph) * R, y + Math.sin(th - ph) * R], dm = R + far * 0.35;
+      ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x + a[0] * d1 + px * hw, y + a[1] * d1 + py * hw);
+      ctx.quadraticCurveTo(x + a[0] * dm + px * hw, y + a[1] * dm + py * hw, e1[0], e1[1]); ctx.lineTo(x, y); ctx.lineTo(e2[0], e2[1]);
+      ctx.quadraticCurveTo(x + a[0] * dm - px * hw, y + a[1] * dm - py * hw, x + a[0] * d1 - px * hw, y + a[1] * d1 - py * hw); ctx.closePath(); ctx.fill(); };
+    for (const a of arms) flare(a, CELL * 0.66, P.roadEdge, RB_DISC + 2.4, 9);
+    ctx.fillStyle = P.roadEdge; ctx.beginPath(); ctx.arc(x, y, RB_DISC + 2.4, 0, 7); ctx.fill();
+    for (const a of arms) flare(a, CELL * 0.54, P.road, RB_DISC, 11);
+    ctx.fillStyle = P.road; ctx.beginPath(); ctx.arc(x, y, RB_DISC, 0, 7); ctx.fill();
+    ctx.fillStyle = P.island; ctx.beginPath(); ctx.arc(x, y, RB_ISLE, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.arc(x, y, RB, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = P.road; ctx.beginPath(); ctx.arc(x, y, 9, 0, 7); ctx.fill();
+    ctx.strokeStyle = P.sign; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.arc(x, y, 7, -1.2, 4.2); ctx.stroke();
+    ctx.fillStyle = P.sign; ctx.beginPath(); ctx.moveTo(x + Math.cos(-1.2) * 7 + 3.5, y + Math.sin(-1.2) * 7 + 1); ctx.lineTo(x + Math.cos(-1.2) * 7 - 2, y + Math.sin(-1.2) * 7 - 3.5); ctx.lineTo(x + Math.cos(-1.2) * 7 - 2.5, y + Math.sin(-1.2) * 7 + 3); ctx.fill(); }
+  drawTrees();
+  // buildings
+  for (const b of bld.values()){ const x = cx(b.i), y = cy(b.i), colr = P.col[b.color], dk = P.dark[b.color];
+    const pop = Math.min(1, b.t / 0.35), e = 1 - Math.pow(1 - pop, 3);
+    ctx.save(); ctx.translate(x, y); ctx.scale(e, e);
+    if (b.type === 'house'){ const s = CELL * 0.56;
+      ctx.fillStyle = P.shadow; rr(-s/2 + 3, -s/2 + 4, s, s, 6); ctx.fill();
+      { const want = Math.atan2(DIRS[b.door][1], DIRS[b.door][0]) - Math.PI / 2; if (b.rot === undefined) b.rot = want;
+        let dd = want - b.rot; while (dd > Math.PI) dd -= Math.PI * 2; while (dd < -Math.PI) dd += Math.PI * 2; b.rot += dd * 0.25; // turns smoothly to a new entrance
+        ctx.rotate(b.rot); } // roof ridge at the back, entrance faces the door
+      ctx.fillStyle = colr; rr(-s/2, -s/2, s, s, 6); ctx.fill();
+      ctx.fillStyle = dk; rr(-s/2, -s/2, s, s * 0.36, [6,6,0,0]); ctx.fill();
+      const idle = b.cars.filter(c => c.phase === 'home').length;
+      ctx.fillStyle = P.win; for (let k = 0; k < idle; k++){ ctx.beginPath(); ctx.arc(-s * 0.18 + k * s * 0.36, s * 0.18, 2.2, 0, 7); ctx.fill(); } }
+    ctx.restore();
+    if (b.type === 'shop') drawShop(b, colr, dk, e); }
+  // ground cars
+  for (const car of cars) if ((car.phase === 'go' && !carHw(car) && !inTunnel(car)) || car.phase === 'park' || car.phase === 'wait' || car.phase === 'unpark' || car.phase === 'leave') drawCar(car);
+  for (const b of bld.values()) if (b.type === 'shop') drawShopBody(b);
+  // highways (elevated)
+  for (const h of hws){ drawHwShadow(h); drawHwDeck(h); // in build order: a later, higher highway covers the earlier one together with its cars
+    for (const car of cars) if (car.phase === 'go' && carHw(car) === h) drawCar(car); }
+  // highway placement preview
+  if (mode === 'hw' && hwStart >= 0){
+    ctx.strokeStyle = P.accent; ctx.lineWidth = 3; ctx.setLineDash([8, 6]);
+    ctx.beginPath(); ctx.moveTo(cx(hwStart), cy(hwStart)); if (hoverCell >= 0) ctx.lineTo(cx(hoverCell), cy(hoverCell)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(cx(hwStart), cy(hwStart), CELL * 0.36, 0, 7); ctx.stroke(); }
+  if ((mode === 'ring' || mode === 'hw' || mode === 'light') && hoverCell >= 0 && roads.has(hoverCell)){
+    ctx.strokeStyle = P.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx(hoverCell), cy(hoverCell), CELL * 0.46, 0, 7); ctx.stroke(); }
+  tutGuide();
+  // pins
+  // orders sit on the roof of the shop, in a line along the building
+  for (const b of bld.values()){ if (b.type !== 'shop' || b.pins === 0) continue;
+    ctx.fillStyle = P.shadow; for (let k = 0; k < b.pins; k++){ const [px, py] = roofChip(b, k, b.pins); ctx.beginPath(); ctx.ellipse(px + 4, py + CHIP_LIFT, CHIP_R * 0.85, CHIP_R * 0.5, 0, 0, 7); ctx.fill(); }
+    for (let k = 0; k < b.pins; k++){ const [px, py] = roofChip(b, k, b.pins); drawChip(px, py, CHIP_R, b.color, k >= b.pins - b.reserved); }
+    if (b.pins >= capOf(b)){ const a = roofChip(b, 0, b.pins), z = roofChip(b, b.pins - 1, b.pins), mx = (a[0] + z[0]) / 2, my = (a[1] + z[1]) / 2; // overflow timer round the chips
+      const rad = Math.hypot(z[0] - a[0], z[1] - a[1]) / 2 + CHIP_R + 5;
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(mx, my, rad, 0, 7); ctx.stroke();
+      ctx.strokeStyle = P.warn; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(mx, my, rad, -Math.PI/2, -Math.PI/2 + (b.overT / T.overflow) * Math.PI * 2); ctx.stroke(); } }
+  ctx.restore();
+  // order chips flying to the counter
+  for (const f of flies){ const t = Math.min(1, f.t / f.dur), e = t * t * (3 - 2 * t), u = 1 - e;
+    const x = u * u * f.x0 + 2 * u * e * f.cx + e * e * f.x1, y = u * u * f.y0 + 2 * u * e * f.cy + e * e * f.y1;
+    drawChip(x, y, CHIP_R + 4 * Math.sin(Math.PI * t), f.color, false); }
+}
+
+// ---------- tools ----------
+let toastT = 0;
+function toast(msg){ const t = $('toast'); t.textContent = msg; t.hidden = false; t.style.opacity = 1; toastT = 2.2; }
+function setPaused(p){ paused = p; $('pauseBtn').textContent = p ? 'Дальше' : 'Пауза'; $('pauseBtn').classList.toggle('on', p); }
+function setMode(m){
+  if (m === 'ring' && ringN <= 0){ toast('Колец нет — их дают в начале недели'); return; }
+  if (m === 'hw' && hwN <= 0){ toast('Шоссе нет — его дают в начале недели'); return; }
+  if (m === 'light' && lightN <= 0){ toast('Светофоров нет — их дают в начале недели'); return; }
+  mode = m; hwStart = -1;
+  for (const [id, k] of [['tDraw','draw'],['tErase','erase'],['tRing','ring'],['tHw','hw'],['tLight','light']]) $(id).classList.toggle('on', mode === k);
+}
+const B_HEIGHT = { house: 7, shop: 13 + SHOP_H };
+function shapeHw(h){ // smooth curve that leaves each end in the direction of the road it joins, and a height profile that clears every roof
+  const A = [cx(h.a), cy(h.a)], B = [cx(h.b), cy(h.b)], L = Math.hypot(B[0] - A[0], B[1] - A[1]);
+  const away = (n, to) => { let vx = 0, vy = 0; for (const j of eOf(n)){ vx += cx(n) - cx(j); vy += cy(n) - cy(j); }
+    const tl = Math.hypot(to[0] - cx(n), to[1] - cy(n)), tx = (to[0] - cx(n)) / tl, ty = (to[1] - cy(n)) / tl, vl = Math.hypot(vx, vy);
+    if (vl < 1e-6) return [tx, ty]; vx /= vl; vy /= vl; let mx = vx + tx * 1.1, my = vy + ty * 1.1; const ml = Math.hypot(mx, my) || 1; return [mx / ml, my / ml]; };
+  const d1 = away(h.a, B), d2 = away(h.b, A), C1 = [A[0] + d1[0] * L * 0.35, A[1] + d1[1] * L * 0.35], C2 = [B[0] + d2[0] * L * 0.35, B[1] + d2[1] * L * 0.35];
+  const N = Math.max(16, Math.round(L / 8)), smp = [];
+  for (let n = 0; n <= N; n++){ const t = n / N, u = 1 - t;
+    smp.push({ t, x: u*u*u*A[0] + 3*u*u*t*C1[0] + 3*u*t*t*C2[0] + t*t*t*B[0], y: u*u*u*A[1] + 3*u*u*t*C1[1] + 3*u*t*t*C2[1] + t*t*t*B[1], ht: 0, over: false }); }
+  const top = Math.min(16, 6 + L * 0.04), need = smp.map(q => { const c = Math.floor(q.x / CELL), r = Math.floor(q.y / CELL), i = inb(c, r) ? idx(c, r) : -1;
+    // the deck is about a quarter cell wide, so any roof within that reach counts
+    let n = 0; for (const [dx, dy] of [[0,0],[8,0],[-8,0],[0,8],[0,-8]]){ const cc = Math.floor((q.x + dx) / CELL), rr2 = Math.floor((q.y + dy) / CELL), j = inb(cc, rr2) ? idx(cc, rr2) : -1;
+      const bb = j >= 0 && j !== h.a && j !== h.b ? occ.get(j) : null; if (bb) n = Math.max(n, (bb.type === 'shop' && bb.lot.has(j) ? 3 : B_HEIGHT[bb.type]) + 6); }
+    q.over = n > 0; return n; });
+  // a later highway passes over earlier ones where they cross, and is drawn on top of them
+  for (const g of hws){ if (g === h) break; if (!g.smp) continue;
+    smp.forEach((q, n) => { for (const o of g.smp) if (Math.abs(o.x - q.x) < CELL * 0.4 && Math.abs(o.y - q.y) < CELL * 0.4 && Math.hypot(o.x - q.x, o.y - q.y) < CELL * 0.4){ need[n] = Math.max(need[n], o.ht + 10); q.over = true; } }); }
+  const span = Math.max(3, Math.round(N * 0.18));
+  for (let n = 0; n <= N; n++){ const t = n / N, base = top * Math.pow(Math.sin(Math.PI * t), 0.8);
+    let req = 0; for (let m = Math.max(0, n - span); m <= Math.min(N, n + span); m++) if (need[m]) req = Math.max(req, need[m] * (0.5 + 0.5 * Math.cos(Math.PI * Math.abs(n - m) / span)));
+    const endCap = Math.min(1, Math.min(n, N - n) / span) ; // still meets the ground at both ends
+    smp[n].ht = Math.max(base, req * (0.35 + 0.65 * endCap)) * (n === 0 || n === N ? 0 : 1); }
+  // soften the profile so the deck rises and falls in one smooth swell, never below a roof it crosses
+  for (let pass = 0; pass < 12; pass++){ const prev = smp.map(q => q.ht);
+    for (let n = 1; n < N; n++) smp[n].ht = Math.max(need[n], 0.25 * prev[n-1] + 0.5 * prev[n] + 0.25 * prev[n+1]); }
+  h.smp = smp;
+}
+function eraseHwAt(ev){ // tap a highway in erase mode to take it down and get it back
+  const r = cv.getBoundingClientRect(), x = (ev.clientX - r.left - offX) / scale, y = (ev.clientY - r.top - offY) / scale;
+  for (let k = hws.length - 1; k >= 0; k--) for (const q of hws[k].smp)
+    if (Math.hypot(q.x - x, q.y - y) < CELL * 0.32){ removeHw(hws[k]); toast('Шоссе снято и вернулось в запас'); return true; }
+  return false;
+}
+function removeHw(h){ netV++; hws = hws.filter(x => x !== h); hwOf.delete(h.a); hwOf.delete(h.b); hwN++; }
+function cleanup(i){ if (rings.delete(i)){ ringN++; netV++; zoneRings(); } if (lights.delete(i)) lightN++; const h = hwOf.get(i); if (h) removeHw(h.h); }
+function clearNode(i, soft){ for (const j of [...eOf(i)]){ if (dying.has(ekey(i, j))) continue; if (!freeEdge(i, j)) budget++; if (soft && inUse(i, j)){ dying.add(ekey(i, j)); netV++; } else delEdge(i, j); } if (!soft || !eOf(i).size) cleanup(i); }
+function eraseCell(i){
+  if (occ.has(i)){ const b = occ.get(i); if (hasEdge(b.i, b.doorCell)) delEdge(b.i, b.doorCell); return; }
+  if (!roads.has(i)) return;
+  const bid = bridgeOf.get(i);
+  if (bid !== undefined){ for (const [c, id] of [...bridgeOf]) if (id === bid){ bridgeOf.delete(c); clearNode(c); } bridgesN++; return; }
+  const tid = tunnelOf.get(i);
+  if (tid !== undefined){ for (const [c, id] of [...tunnelOf]) if (id === tid){ tunnelOf.delete(c); clearNode(c); } tunnelsN++; return; }
+  clearNode(i, true);
+}
+let stroke = null, drawing = false, last = -1, drawErase = false;
+function warn(msg){ if (stroke && stroke.warned) return; toast(msg); if (stroke) stroke.warned = true; }
+// Join a and b with one piece of road. Returns true when the two are connected afterwards.
+// a shared driveway stays the other building's door
+function turnHouse(b, d){ if (![...bld.values()].some(o => o !== b && o.doorCell === b.doorCell)) doors.delete(b.doorCell); b.door = d; b.doorCell = nb(b.i).find(x => x[0] === d)[1]; doors.add(b.doorCell); b.turnT = 0.25; }
+// A house counts as cut off when the road at its entrance leads to no other building: an untouched door, or a stub left after erasing further along.
+function looseDoor(hb){ if (!hasEdge(hb.i, hb.doorCell)) return true;
+  const seen = new Set([hb.i, hb.doorCell]), q = [hb.doorCell];
+  while (q.length){ const c = q.pop(); for (const j of eOf(c)){ if (seen.has(j)) continue; if (bld.has(j)) return false; seen.add(j); q.push(j); } }
+  return true; }
+function link(a, b, st){
+  if (a === b) return true;
+  // a house with no road at its entrance turns to face the road you bring to another of its sides
+  // (it may also face a neighbour's or a shop's entrance right next to it: they share that driveway)
+  // dragged off at a diagonal: it faces the side next to where the road is going
+  for (const [h, side] of [[a, b], [b, a]]){ const hb = bld.get(h); if (!hb || hb.type !== 'house' || hb.doorCell === side) continue; // the rule is simple: a road pulled out of a house always turns it that way
+    const okSide = j => inPlay(j) && !water.has(j) && !mount.has(j) && !occ.has(j) && !ringZone.has(j); // a neighbour's driveway may be shared; a roundabout's square is not a driveway
+    const reach = (j, t) => j === t || (adj8(j, t) && !bld.has(t) && (col_(j) === col_(t) || row_(j) === row_(t) || canEdge(j, t)));
+    let d = nb(h).find(([, j]) => j === side && okSide(j));
+    if (!d && !reach(hb.doorCell, side)){ const c = nb(h).filter(([, j]) => okSide(j) && reach(j, side));
+      c.sort((x, y) => (col_(x[1]) === col_(side) || row_(x[1]) === row_(side) ? 0 : 1) - (col_(y[1]) === col_(side) || row_(y[1]) === row_(side) ? 0 : 1)); d = c[0]; }
+    if (!d) continue;
+    if (hasEdge(h, hb.doorCell)) delEdge(h, hb.doorCell); // the old driveway lets go; the road it led to stays where it is
+    turnHouse(hb, d[0]); }
+  // dragged out of / into a building on the wrong side: go round through its entrance
+  if (bld.has(a) && bld.get(a).doorCell !== b){ const d = bld.get(a).doorCell; return !bld.has(b) && adj8(d, b) && link(a, d, st) && link(d, b, st); }
+  if (bld.has(b) && bld.get(b).doorCell !== a){ const d = bld.get(b).doorCell; return !bld.has(a) && adj8(a, d) && link(a, d, st) && link(d, b, st); }
+  if (hasEdge(a, b)){ if (dying.has(ekey(a, b))){ if (!freeEdge(a, b)){ if (budget <= 0){ warn('Дороги кончились — новые придут в начале недели'); return false; } budget--; } dying.delete(ekey(a, b)); netV++; } // drawn again over a fading road: it stays
+    st.run = water.has(b) || mount.has(b) ? st.run : null; autoDoor(a); autoDoor(b); return true; }
+  if (!canEdge(a, b)) return false;
+  if (water.has(b)){
+    if (!water.has(a)){ if (bridgesN <= 0){ warn('Мостов нет — выбери мост в начале недели'); return false; }
+      bridgesN--; st.run = { id: ++bridgeSeq, len: 1 }; bridgeOf.set(b, st.run.id); if (st.bridges) st.bridges.push(st.run.id); }
+    else { const r = st.run; if (!r || bridgeOf.get(a) !== r.id || r.len >= 5) return false; r.len++; bridgeOf.set(b, r.id); }
+  } else if (mount.has(b)){ // into the mountain: a tunnel, one per run however long
+    if (!mount.has(a)){ if (tunnelsN <= 0){ warn('Туннелей нет — выбери туннель в начале недели'); return false; }
+      tunnelsN--; st.run = { id: ++tunnelSeq, len: 1, tun: true }; tunnelOf.set(b, st.run.id); if (st.tunnels) st.tunnels.push(st.run.id); }
+    else { const r = st.run; if (!r || !r.tun || tunnelOf.get(a) !== r.id || r.len >= 8) return false; r.len++; tunnelOf.set(b, r.id); }
+  } else if (!freeEdge(a, b)){
+    if (budget <= 0){ warn(`Дороги кончились — ещё ${T.weekRoads} через ${fmt(weekT)}`); return false; }
+    budget--; st.run = null;
+  } else if (!water.has(b) && !mount.has(b)) st.run = null;
+  addEdge(a, b); trees.delete(a); trees.delete(b); if (st && st.added) st.added.push([a, b]); edgeBorn.set(a < b ? a + ',' + b : b + ',' + a, performance.now()); autoDoor(a); autoDoor(b); return true;
+}
+function apply(i){
+  if (i < 0 || over || choosing) return;
+  if (drawErase){ eraseCell(i); last = i; return; }
+  if (last >= 0 && last !== i) link(last, i, stroke);
+  last = i;
+}
+function walk(a, b){ // fill the gap when the pointer jumps several cells: straight runs plus 45° steps
+  let c = col_(a), r = row_(a); const tc = col_(b), tr = row_(b);
+  while (c !== tc || r !== tr){ const dc = tc - c, dr = tr - r;
+    let sc = Math.sign(dc), sr = Math.sign(dr);
+    if (Math.abs(dc) > 2 * Math.abs(dr)) sr = 0; else if (Math.abs(dr) > 2 * Math.abs(dc)) sc = 0;
+    c += sc; r += sr; apply(idx(c, r)); } }
+function tapLight(i){
+  if (ringZone.has(i)){ toast('На кольце светофор не нужен'); return; }
+  if (!roads.has(i) || linkCount(i) < 3){ toast('Светофор ставится на перекрёсток — где сходятся три дороги и больше'); return; }
+  if (lights.has(i)) return;
+  if (rings.has(i)){ toast('На кольце светофор не нужен'); return; }
+  lights.set(i, { g: 0, t: 0, clear: 0, want: [false, false] }); lightN--; setMode('draw');
+}
+function tapRing(i){
+  if (rings.has(i)) return;
+  const why = canRing(i); if (why){ toast(why); return; }
+  rings.add(i); ringN--; netV++; zoneRings(); setMode('draw');
+}
+function tapHw(i){
+  if (ringZone.has(i)){ toast('Шоссе не начинается на кольце — отведи его от кольца'); return; }
+  if (!roads.has(i)){ toast('Концы шоссе ставятся на дорогу'); return; }
+  if (hwOf.has(i)){ toast('Здесь уже конец другого шоссе'); return; }
+  if (hwStart < 0){ hwStart = i; return; }
+  if (i === hwStart){ hwStart = -1; return; }
+  if (Math.abs(col_(i) - col_(hwStart)) + Math.abs(row_(i) - row_(hwStart)) < 3){ toast('Шоссе должно быть длиннее трёх клеток'); return; }
+  const h = { a: hwStart, b: i }; shapeHw(h); if (h.smp.some(q => { const c = Math.floor(q.x / CELL), r = Math.floor(q.y / CELL); return inb(c, r) && mount.has(idx(c, r)); })){ toast('Шоссе не проходит над горами — нужен туннель'); return; } hws.push(h); hwOf.set(h.a, { h, partner: h.b }); hwOf.set(h.b, { h, partner: h.a }); netV++;
+  hwN--; setMode('draw');
+}
+const toCell = (ev, inner) => { const r = cv.getBoundingClientRect(); const x = (ev.clientX - r.left - offX) / scale / CELL, y = (ev.clientY - r.top - offY) / scale / CELL;
+  const c = Math.floor(x), rw = Math.floor(y); if (!inb(c, rw) || !inPlay(idx(c, rw))) return -1;
+  // while drawing, a cell counts only once the finger is near its middle, so cutting a corner gives a clean 45° road
+  if (inner && Math.hypot(x - c - 0.5, y - rw - 0.5) > 0.4) return -2;
+  return idx(c, rw); };
+const touches = new Map(); let pinch = null, midPan = null;
+function cancelStroke(){ // the first finger had started a road a moment before the second came down: take it back
+  if (stroke && stroke.added) for (const [a, b] of stroke.added.reverse()){ if (!hasEdge(a, b)) continue; if (!freeEdge(a, b)) budget++; delEdge(a, b); }
+  if (stroke && stroke.tunnels) for (const id of stroke.tunnels){ for (const [c, tid] of [...tunnelOf]) if (tid === id){ tunnelOf.delete(c); for (const j of [...eOf(c)]) delEdge(c, j); } tunnelsN++; }
+  if (stroke && stroke.bridges) for (const id of stroke.bridges){ for (const [c, bid] of [...bridgeOf]) if (bid === id){ bridgeOf.delete(c); for (const j of [...eOf(c)]) delEdge(c, j); } bridgesN++; }
+  drawing = false; last = -1; stroke = null; }
+cv.addEventListener('pointerdown', ev => {
+  touches.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  if (touches.size === 2){ cancelStroke(); const [p1, p2] = [...touches.values()]; pinch = { d: Math.hypot(p1.x - p2.x, p1.y - p2.y), x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }; return; }
+  if (touches.size > 2) return;
+  if (ev.button === 1){ midPan = { x: ev.clientX, y: ev.clientY }; cv.setPointerCapture(ev.pointerId); ev.preventDefault(); return; }
+  if (over || choosing) return;
+  const i = toCell(ev);
+  if (ev.button !== 2 && mode === 'ring'){ if (i >= 0) tapRing(i); return; }
+  if (ev.button !== 2 && mode === 'hw'){ if (i >= 0) tapHw(i); return; }
+  if (ev.button !== 2 && mode === 'light'){ if (i >= 0) tapLight(i); return; }
+  if ((mode === 'erase' || ev.button === 2) && eraseHwAt(ev)) return;
+  cv.setPointerCapture(ev.pointerId); drawing = true; drawErase = mode === 'erase' || ev.button === 2;
+  stroke = { run: null, warned: false, added: [], bridges: [], tunnels: [] }; last = -1; apply(i); });
+cv.addEventListener('pointermove', ev => {
+  if (touches.has(ev.pointerId)) touches.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  if (pinch && touches.size === 2){ const [p1, p2] = [...touches.values()], r = cv.getBoundingClientRect();
+    const d = Math.hypot(p1.x - p2.x, p1.y - p2.y), x = (p1.x + p2.x) / 2, y = (p1.y + p2.y) / 2;
+    panBy(x - pinch.x, y - pinch.y); zoomAt(x - r.left, y - r.top, d / Math.max(1, pinch.d)); pinch = { d, x, y }; return; }
+  if (midPan){ panBy(ev.clientX - midPan.x, ev.clientY - midPan.y); midPan = { x: ev.clientX, y: ev.clientY }; return; }
+  hoverCell = toCell(ev, false);
+  if (!drawing) return; const i = toCell(ev, true);
+  if (i < 0 || i === last) return; if (last >= 0 && !adj8(last, i)) walk(last, i); else apply(i); });
+const up = ev => { // a stroke released at the edge of a cell still takes that cell
+  touches.delete(ev.pointerId); if (pinch){ if (touches.size < 2) pinch = null; return; } if (midPan){ midPan = null; return; }
+  if (drawing && ev && ev.type === 'pointerup'){ const i = toCell(ev, false); if (i >= 0 && last >= 0 && i !== last && adj8(last, i)) apply(i); }
+  drawing = false; last = -1; stroke = null; };
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+cv.addEventListener('pointerleave', () => { hoverCell = -1; });
+cv.addEventListener('contextmenu', ev => ev.preventDefault());
+cv.addEventListener('wheel', ev => { ev.preventDefault(); const r = cv.getBoundingClientRect();
+  const mouseWheel = !ev.ctrlKey && ev.deltaX === 0 && Math.abs(ev.deltaY) >= 40 && Number.isInteger(ev.deltaY);
+  if (ev.ctrlKey || mouseWheel) zoomAt(ev.clientX - r.left, ev.clientY - r.top, Math.exp(-ev.deltaY * (ev.ctrlKey ? 0.01 : 0.0015)));
+  else panBy(-ev.deltaX, -ev.deltaY); }, { passive: false });
+$('tDraw').onclick = () => setMode('draw'); $('tErase').onclick = () => setMode('erase');
+$('tRing').onclick = () => setMode('ring'); $('tHw').onclick = () => setMode('hw'); $('tLight').onclick = () => setMode('light');
+$('tBridge').onclick = () => toast('Мост ставится сам, когда ведёшь дорогу через реку');
+$('tTunnel').onclick = () => toast('Туннель ставится сам, когда ведёшь дорогу через гору');
+$('pauseBtn').onclick = () => { if (!over && !choosing) setPaused(!paused); };
+// ×2: the world runs two steps a frame (the steps stay small, so cars behave exactly as at normal speed)
+const DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']; let speed = 1;
+$('speedBtn').onclick = () => { speed = speed === 1 ? 2 : 1; $('speedBtn').classList.toggle('on', speed === 2); $('speedBtn').setAttribute('aria-pressed', String(speed === 2)); };
+window.addEventListener('keydown', ev => { if (ev.code === 'Space' && ev.target === document.body && !menuOpen){ ev.preventDefault(); if (!over && !choosing) setPaused(!paused); }
+  if (ev.code === 'Escape'){ if (mode !== 'draw') setMode('draw'); else if (!choosing) (menuOpen ? (hasSave() ? closeMenu() : null) : openMenu()); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden && !over) setPaused(true); });
+$('againBtn').onclick = () => newGame();
+// ---------- menu ----------
+let menuOpen = false;
+const plural = (n, a, b, c) => { const m = n % 10, h = n % 100; return m === 1 && h !== 11 ? a : m >= 2 && m <= 4 && (h < 12 || h > 14) ? b : c; };
+function hasSave(){ try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+function drawMini(c, id){ // a little picture of the map: its water, a shop and a few houses
+  const x = c.getContext('2d'), w = c.width, h = c.height, keep = { mapId, water, cols, rows, mount, trees };
+  x.fillStyle = P.ground; x.fillRect(0, 0, w, h);
+  mapId = id; cols = FULL[0]; rows = FULL[1]; if (id !== 'random') buildWater();
+  const cw = w / cols, ch = h / rows; x.fillStyle = P.water;
+  if (id === 'random'){ x.strokeStyle = P.water; x.lineWidth = 12; x.lineCap = 'round'; x.beginPath(); x.moveTo(w * 0.74, -6); x.quadraticCurveTo(w * 0.64, h * 0.45, w * 0.78, h + 6); x.stroke(); }
+  else for (const i of water){ x.beginPath(); x.roundRect(col_(i) * cw - 0.6, row_(i) * ch - 0.6, cw + 1.2, ch + 1.2, 2); x.fill(); }
+  if (id !== 'random' && MAPS[id].hills){ buildTerrain(); x.fillStyle = P.rockSh; for (const i of mount){ x.beginPath(); x.roundRect(col_(i) * cw - 0.6, row_(i) * ch - 0.6, cw + 1.2, ch + 1.2, 2); x.fill(); }
+    x.fillStyle = P.tree; for (const [i] of trees){ x.beginPath(); x.arc(col_(i) * cw + cw / 2, row_(i) * ch + ch / 2, cw * 0.32, 0, 7); x.fill(); } }
+  ({ mapId, water, cols, rows, mount, trees } = keep);
+  const sq = (X, Y, cc, ww, hh) => { x.fillStyle = cc; x.beginPath(); x.roundRect(X, Y, ww || 9, hh || 9, 2.5); x.fill(); };
+  const spots = { random: [[0.13, 0.26], [0.25, 0.66], [0.5, 0.18], [0.86, 0.45]], minsk: [[0.1, 0.62], [0.32, 0.75], [0.62, 0.22], [0.9, 0.4]], bobruisk: [[0.15, 0.3], [0.35, 0.82], [0.45, 0.2], [0.88, 0.5]], hills: [[0.12, 0.45], [0.45, 0.3], [0.48, 0.7], [0.8, 0.6]], lake: [[0.12, 0.3], [0.2, 0.75], [0.82, 0.25], [0.85, 0.75]] }[id];
+  spots.forEach(([u, v], k) => sq(u * w, v * h, P.col[k % 4]));
+  const shop = { random: [0.36, 0.44], minsk: [0.18, 0.42], bobruisk: [0.38, 0.4], lake: [0.12, 0.5], hills: [0.44, 0.48] }[id]; sq(shop[0] * w, shop[1] * h, P.col[0], 26, 15); }
+function buildMenuMaps(){
+  const box = $('maps'); box.innerHTML = '';
+  for (const id of ['random', 'minsk', 'bobruisk', 'lake', 'hills']){ const m = MAPS[id], best = bestScore(id);
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'map';
+    b.innerHTML = `<canvas width="252" height="140"></canvas><span class="mname">${m.name}</span><span class="mdesc">${m.desc}${best ? ' · рекорд ' + best : ''}</span>`;
+    b.onclick = () => { newGame(id); closeMenu(); }; box.appendChild(b); drawMini(b.querySelector('canvas'), id); } }
+function openMenu(){
+  const playing = !over && time > 1; // a game that has actually been played can be continued
+  if (playing) saveNow();
+  menuOpen = true; const saved = playing && hasSave(), best = bestScore();
+  $('contBtn').hidden = !saved;
+  if (saved) $('contBtn').textContent = `Продолжить · неделя ${week}, ${trips} ${plural(trips, 'заказ', 'заказа', 'заказов')}`;
+  buildMenuMaps(); $('menu').hidden = false; $('over').hidden = true; }
+function closeMenu(){ menuOpen = false; $('menu').hidden = true; if (over) $('over').hidden = false; }
+$('menuBtn').onclick = () => (menuOpen ? closeMenu() : openMenu());
+$('contBtn').onclick = closeMenu;
+$('overMenuBtn').onclick = openMenu;
+
+// ---------- zoom buttons ----------
+$('zIn').onclick = () => zoomAt(W / 2, viewH / 2, 1.4);
+$('zOut').onclick = () => zoomAt(W / 2, viewH / 2, 1 / 1.4);
+
+// ---------- first-run tutorial ----------
+// Step 0 holds the clock until the first road reaches a shop; later steps go by themselves.
+// Each tool also gets a one-time hint the first time the player has it.
+const TUT_KEY = 'dorozhki-tut', TIPS_KEY = 'dorozhki-tips';
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+const touchUI = matchMedia('(pointer: coarse)').matches;
+let tut = null, tipShown = null, tipT = 0, tipsSeen = {};
+try { tipsSeen = JSON.parse(lsGet(TIPS_KEY) || '{}') || {}; } catch (e) { tipsSeen = {}; }
+const TUT = [
+  { text: () => 'Проведи дорогу ' + (touchUI ? 'пальцем' : 'мышкой') + ' от домика к магазину того же цвета.', ok: false },
+  { text: () => 'Машинка поехала! Белые фишки над магазином — это заказы. Не дай им скопиться: переполненный магазин заканчивает игру.', ok: true, min: 5 },
+  { text: () => 'Ошибся с дорогой — выбери внизу «Стереть»' + (touchUI ? '' : ' или веди правой кнопкой мыши') + '. ' + (touchUI ? 'Двумя пальцами' : 'Колёсиком') + ' можно приблизить карту.', ok: true, min: 6 },
+  { text: () => 'Город растёт: каждую минуту — новая неделя, свежие дороги и награда на выбор. Удачи!', ok: true, min: 5 } ];
+const TOOL_TIPS = {
+  ring: () => ringN > 0 && 'Появилось кольцо. Оно занимает квадрат 3×3: дороги подходят к перекрёстку прямо, рядом нет других дорог. Выбери «Кольцо» и коснись перекрёстка — машины перестанут на нём тормозить.',
+  hw: () => hwN > 0 && 'Появилось шоссе. Выбери «Шоссе» внизу и коснись двух дорог — оно пройдёт над домами и рекой.',
+  light: () => lightN > 0 && 'Появился светофор. Выбери «Светофор» и коснись перекрёстка, где сходятся три дороги и больше.',
+  bridge: () => bridgesN > 0 && week > 1 && 'Мосты ставятся сами, когда ведёшь дорогу через реку.' };
+function showTip(text){ $('tipText').textContent = text; $('tip').hidden = false; tipShown = text; tipT = 0; }
+function hideTip(){ $('tip').hidden = true; tipShown = null; }
+function tutStart(){ tut = { step: 0, t: 0 }; showTip(TUT[0].text()); $('tipOk').hidden = true; }
+function tutNext(){ if (!tut) return hideTip(); tut.step++; tut.t = 0;
+  if (tut.step >= TUT.length){ tut = null; lsSet(TUT_KEY, 'done'); hideTip(); return; }
+  showTip(TUT[tut.step].text()); $('tipOk').hidden = false; }
+function tutSkip(){ tut = null; lsSet(TUT_KEY, 'done'); lsSet(TIPS_KEY, JSON.stringify(tipsSeen = { ring: 1, hw: 1, light: 1, bridge: 1 })); hideTip(); }
+$('tipOk').onclick = () => { if (tut) tutNext(); else hideTip(); };
+$('tipSkip').onclick = tutSkip;
+$('tutBtn').onclick = () => { lsSet(TUT_KEY, ''); lsSet(TIPS_KEY, '{}'); tipsSeen = {}; tut = null; newGame('minsk'); closeMenu(); };
+function stepTut(dt){
+  const live = !menuOpen && !over && !choosing && !paused;
+  if (!tut && lsGet(TUT_KEY) !== 'done' && live && time < 0.5 && trips === 0 && cars.every(c => c.phase === 'home')) tutStart();
+  if (tut && live){ tut.t += dt;
+    if (tut.step === 0 && (tut.chk = (tut.chk || 0) + dt) > 0.25){ tut.chk = 0; // a house of some colour now reaches its shop: hand out the first order at once
+      for (const sh of bld.values()){ if (sh.type !== 'shop') continue;
+        if ([...bld.values()].some(h => h.type === 'house' && h.color === sh.color && bfsNodes(h.i, sh))){ sh.pins = Math.max(sh.pins, 1); sh.pinT = Math.max(sh.pinT, 6); tutNext(); break; } } }
+    else if (tut.step > 0 && tut.t > (TUT[tut.step].min || 5) + 4) tutNext(); } // read it, then it moves on by itself
+  if (!tut && live){
+    if (tipShown){ tipT += dt; if (tipT > 9) hideTip(); }
+    else for (const k in TOOL_TIPS){ if (tipsSeen[k]) continue; const t = TOOL_TIPS[k](); if (t){ tipsSeen[k] = 1; lsSet(TIPS_KEY, JSON.stringify(tipsSeen)); showTip(t); $('tipOk').hidden = false; break; } } }
+  $('tip').classList.toggle('down', !$('tag').hidden);
+  $('zOut').disabled = uz <= 1.001; $('zIn').disabled = uz >= 2.999; }
+const tutHold = () => !!tut && tut.step === 0;
+function tutGuide(){ // step 0: a dashed path from a house to its shop with a finger gliding along it
+  if (!tut || tut.step !== 0) return;
+  const shop = [...bld.values()].find(b => b.type === 'shop'); if (!shop) return;
+  let best = null, bd = 1e9; for (const b of bld.values()) if (b.type === 'house' && b.color === shop.color){ const d = Math.hypot(cx(b.i) - cx(shop.doorCell), cy(b.i) - cy(shop.doorCell)); if (d < bd){ bd = d; best = b; } }
+  if (!best) return;
+  const a = [cx(best.i), cy(best.i)], z = [cx(shop.doorCell), cy(shop.doorCell)], m = [(a[0] + z[0]) / 2, (a[1] + z[1]) / 2];
+  const nowS = performance.now() / 1000, pulse = 0.5 + 0.5 * Math.sin(nowS * 4);
+  ctx.save(); ctx.strokeStyle = P.accent; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.setLineDash([2, 12]); ctx.lineDashOffset = -nowS * 30; ctx.globalAlpha = 0.85;
+  ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo(m[0], a[1], z[0], z[1]); ctx.stroke(); ctx.setLineDash([]);
+  for (const q of [a, z]){ ctx.globalAlpha = 0.35 + 0.4 * pulse; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(q[0], q[1], CELL * (0.5 + 0.08 * pulse), 0, 7); ctx.stroke(); }
+  const t = (nowS % 2.2) / 1.8; if (t <= 1){ const u = 1 - t, fx = u * u * a[0] + 2 * u * t * m[0] + t * t * z[0], fy = u * u * a[1] + 2 * u * t * a[1] + t * t * z[1];
+    ctx.globalAlpha = 0.9 * Math.min(1, 4 * t, 4 * (1 - t) + 0.3); ctx.fillStyle = '#fff'; ctx.strokeStyle = P.accent; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(fx, fy, 9, 0, 7); ctx.fill(); ctx.stroke(); }
+  ctx.restore(); }
+
+// ---------- loop ----------
+let lastT = performance.now(), gridA = 0; const GRID_GUIDE = true;
+function frame(now){ const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  gridA += ((drawing && !drawErase ? 1 : 0) - gridA) * Math.min(1, dt * 10); for (let k = 0; k < speed; k++) tick(dt); draw(); stepTut(dt);
+  placeCamera(false, dt); stepFlies(paused || choosing || over || menuOpen ? 0 : dt); $('trips').textContent = trips - flies.length; $('week').textContent = week; { const f = Math.min(0.99999, 1 - weekT / WEEK) * 7, d = Math.floor(f), m = Math.floor((f - d) * 24 * 60); $('clock').textContent = DAYS[d] + ' ' + String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); $('clkHand').setAttribute('transform', `rotate(${(f - d) * 720} 10 10)`); }
+  $('nRoad').textContent = budget; $('nRing').textContent = ringN; $('nHw').textContent = hwN; $('nBridge').textContent = bridgesN; $('nLight').textContent = lightN; $('tLight').classList.toggle('empty', lightN <= 0 && mode !== 'light');
+  $('tRing').classList.toggle('empty', ringN <= 0 && mode !== 'ring'); $('tHw').classList.toggle('empty', hwN <= 0 && mode !== 'hw');
+  $('tBridge').classList.toggle('empty', bridgesN <= 0); $('tTunnel').hidden = !mount.size; $('nTunnel').textContent = tunnelsN; $('tTunnel').classList.toggle('empty', tunnelsN <= 0);
+  const tag = $('tag'), msg = paused ? 'Пауза — дороги рисовать можно' : mode === 'erase' ? 'Веди по дороге, чтобы стереть; нажми на шоссе, чтобы снять его' : mode === 'ring' ? 'Нажми на клетку дороги, где поставить кольцо' : mode === 'light' ? 'Нажми на перекрёсток, где поставить светофор' :
+    mode === 'hw' ? (hwStart < 0 ? 'Нажми на дорогу — начало шоссе' : 'Теперь нажми на дорогу — конец шоссе') : '';
+  tag.hidden = !msg; tag.textContent = msg;
+  if (toastT > 0){ toastT -= dt; if (toastT <= 0.3) $('toast').style.opacity = Math.max(0, toastT / 0.3); if (toastT <= 0) $('toast').hidden = true; }
+  requestAnimationFrame(frame); }
+window.addEventListener('resize', resize);
+// Soft sounds, made on the fly: a light marimba-like note when a house appears, a two-note chime for a shop.
+let AC = null, soundOn = true; try { soundOn = localStorage.getItem('dorozhki-sound') !== 'off'; } catch (e) {}
+function ensureAudio(){ try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); } catch (e) { AC = null; } }
+function note(freq, when, vol, dur){
+  if (!AC || !soundOn || AC.state !== 'running') return;
+  const t = AC.currentTime + when, g = AC.createGain(), o = AC.createOscillator(), o2 = AC.createOscillator(), g2 = AC.createGain(), lp = AC.createBiquadFilter();
+  lp.type = 'lowpass'; lp.frequency.value = 2400; o.type = 'sine'; o.frequency.value = freq; o2.type = 'sine'; o2.frequency.value = freq * 3.01; g2.gain.value = 0.12;
+  o.connect(g); o2.connect(g2); g2.connect(g); g.connect(lp); lp.connect(AC.destination);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.start(t); o2.start(t); o.stop(t + dur + 0.05); o2.stop(t + dur + 0.05); }
+const SCALE = [523.25, 587.33, 659.25, 783.99, 880.0]; // C major pentatonic, so random notes never clash
+function sfx(kind){ if (quiet) return;
+  if (kind === 'house') note(SCALE[Math.floor(Math.random() * SCALE.length)], 0, 0.06, 0.7);
+  if (kind === 'shop'){ note(392.0, 0, 0.07, 0.9); note(587.33, 0.14, 0.06, 1.1); }
+  if (kind === 'alarm'){ note(329.63, 0, 0.035, 0.35); note(261.63, 0.18, 0.035, 0.5); }
+  if (kind === 'chip10'){ note(783.99, 0, 0.045, 0.6); note(1046.5, 0.09, 0.04, 0.8); } } // a short bright two-note chime for every tenth order
+function setSound(on){ soundOn = on; $('soundBtn').classList.toggle('on', on); $('soundBtn').setAttribute('aria-pressed', on); $('soundBtn').textContent = on ? 'Звук' : 'Без звука';
+  try { localStorage.setItem('dorozhki-sound', on ? 'on' : 'off'); } catch (e) {} }
+$('soundBtn').onclick = () => { ensureAudio(); setSound(!soundOn); };
+window.addEventListener('pointerdown', ensureAudio, { passive: true }); window.addEventListener('keydown', ensureAudio);
+setSound(soundOn);
+// ---------- saving ----------
+// The game saves itself every few seconds and when the tab is hidden, so a reload or an update carries on where it was.
+const SAVE_KEY = 'dorozhki-save-v1', bestKey = id => 'dorozhki-best-' + id;
+function serialize(){
+  const edges = []; for (const [a, set] of E) for (const b of set) if (a < b && !dying.has(ekey(a, b))) edges.push([a, b]);
+  const blds = [...bld.values()].map(b => b.type === 'house' ? { k: 'h', i: b.i, c: b.color, d: b.door }
+    : { k: 's', i: b.i, c: b.color, d: b.door, l: b.lat, z: b.size, g: b.lvl || 0, p: b.pins, o: Math.round(b.overT * 10) / 10, pt: Math.round(b.pinT * 10) / 10, t: Math.round(b.t) });
+  return { v: 1, map: mapId, area, cols, rows, water: [...water], mount: [...mount], trees: [...trees], tunnels: [...tunnelOf], tunnelSeq, river: riverChain, edges, bridges: [...bridgeOf], bridgeSeq, rings: [...rings], lights: [...lights].map(([i, L]) => [i, L.g]),
+    hws: hws.map(h => [h.a, h.b]), blds, s: { time, trips, week, weekT, budget, bridgesN, tunnelsN, ringN, hwN, lightN, colorsInPlay, spawnHouseT, spawnShopT }, offers: choosing ? offerKeys : null };
+}
+function deserialize(d){
+  if (!d || d.v !== 1) return false;
+  quiet = true; reset(); // clean slate, then rebuild the saved city on it
+  mapId = MAPS[d.map] ? d.map : 'random';
+  cols = d.cols; rows = d.rows; bld.clear(); occ.clear(); doors.clear(); cars = [];
+  water = new Set(d.water); riverChain = d.river || []; waterImg = null;
+  if (d.mount){ mount = new Set(d.mount); trees = new Map(d.trees || []); } else buildTerrain(); tunnelOf = new Map(d.tunnels || []); tunnelSeq = d.tunnelSeq || 0;
+  area = d.area ? { ...d.area } : { c0: 0, r0: 0, c1: cols, r1: rows }; view = null;
+  for (const b of d.blds){
+    if (b.k === 'h'){ const h = { i: b.i, type: 'house', color: b.c, pins: 0, reserved: 0, overT: 0, t: 9, door: b.d, doorCell: nb(b.i).find(x => x[0] === b.d)[1] };
+      h.cars = [mkCar(h), mkCar(h)]; cars.push(...h.cars); doors.add(h.doorCell); occ.set(h.i, h); bld.set(h.i, h); }
+    else { const z = SHOP_TYPES[b.z] ? b.z : (LEGACY_SHOP[b.z] || 'kiosk'), lat = b.l ?? ((b.d + 1) & 3), fit = shopCells(b.i, b.d, lat, z);
+      const sb = Object.assign(makeShop(b.i, b.d, lat, z, fit, b.c), { pins: b.p, overT: b.o, t: b.t, pinT: b.pt, lvl: b.g || 0 });
+      doors.add(sb.doorCell); for (const x of sb.cells) occ.set(x, sb); bld.set(sb.i, sb); } }
+  for (const [a, b] of d.edges) addEdge(a, b);
+  bridgeOf = new Map(d.bridges); bridgeSeq = d.bridgeSeq || 0; rings = new Set(d.rings); zoneRings();
+  lights = new Map(d.lights.map(([i, g]) => [i, { g, t: 0, clear: 0, want: [false, false] }]));
+  for (const [a, b] of d.hws){ const h = { a, b }; shapeHw(h); hws.push(h); hwOf.set(a, { h, partner: b }); hwOf.set(b, { h, partner: a }); }
+  ({ time, trips, week, weekT, budget, bridgesN, ringN, hwN, lightN, colorsInPlay, spawnHouseT, spawnShopT } = d.s); tunnelsN = d.s.tunnelsN || 0;
+  quiet = false;
+  if (d.offers) showOffers(d.offers);
+  return true;
+}
+function saveNow(){ if (over || quiet) return; try { localStorage.setItem(SAVE_KEY, JSON.stringify(serialize())); } catch (e) {} }
+let saveT = null; function saveSoon(){ clearTimeout(saveT); saveT = setTimeout(saveNow, 300); }
+function clearSave(){ try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+function bestScore(id){ try { return +localStorage.getItem(bestKey(id || mapId)) || 0; } catch (e) { return 0; } }
+function gameOver(){ const best = bestScore(); if (trips > best){ try { localStorage.setItem(bestKey(mapId), String(trips)); } catch (e) {} }
+  $('overBest').textContent = trips > best ? 'Новый рекорд!' : `Рекорд — ${best}`; clearSave(); }
+function newGame(id){ if (id) mapId = id; clearSave(); quiet = true; reset(); quiet = false; resize(); saveNow(); }
+setInterval(saveNow, 3000);
+window.addEventListener('pagehide', saveNow);
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveNow(); });
+window.claude?.hot?.snapshot?.(() => ({ save: serialize() })); // an open game survives a republish without even a reload
+function start(data){
+  let loaded = false;
+  if (data && data.save) loaded = deserialize(data.save);
+  if (!loaded){ try { const raw = localStorage.getItem(SAVE_KEY); if (raw) loaded = deserialize(JSON.parse(raw)); } catch (e) { loaded = false; } }
+  if (!loaded){ quiet = true; reset(); quiet = false; }
+  resize(); requestAnimationFrame(frame);
+  if (!(data && data.save)) openMenu(); // a fresh visit starts at the menu; a live update keeps you in the game
+}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>

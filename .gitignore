@@ -1,0 +1,6 @@
+node_modules/
+tests/*.html
+tests/*.json
+tests/mx*/
+tests/shots/
+tests/*.png
