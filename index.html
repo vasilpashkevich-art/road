@@ -195,7 +195,7 @@ const WEEK = 60;
 // Tuned on 32 autoplayer games (3×3 parking-lot shops, big roundabouts, zero body contacts): calm first ~8 min, loss around 9 min for the bot.
 const T = { startRoads: 25, weekRoads: 15, offerRoads: 12,
   cross3: 0.45, cross4: 0.3, grow: 200, // speed share across a plain crossing
-  pinBase: 8, pinRand: 4, ramp: 1100, rampFloor: 0.45, pinMax: 8, overflow: 22,
+  pinBase: 6.5, pinRand: 3.5, ramp: 1100, rampFloor: 0.45, pinMax: 8, overflow: 22,
   house: 15, houseRand: 8, shop: 62, shopRand: 15, firstHouse: 10, firstShop: 30 };
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 const $ = id => document.getElementById(id);
@@ -244,6 +244,7 @@ const OPP8 = d => (d + 4) & 7;
 const pathOk = p => !!p && p.every((x, k) => k === 0 || adj8(p[k - 1], x) || (hwOf.has(p[k - 1]) && hwOf.get(p[k - 1]).partner === x));
 const adj8 = (a, b) => a !== b && Math.max(Math.abs(col_(a) - col_(b)), Math.abs(row_(a) - row_(b))) === 1;
 const dir8 = (a, b) => { const dc = col_(b) - col_(a), dr = row_(b) - row_(a); return D8.findIndex(v => v[0] === dc && v[1] === dr); };
+const ROAD_W = CELL * 0.52; // road width (two lanes and a hair of kerb)
 const mid = (i, d) => [cx(i) + D8[d][0] * H, cy(i) + D8[d][1] * H];
 // Smooth corners: a plain bend between two plain straight pieces is drawn (and driven) as one wide curve from the middle of one straight cell
 // to the middle of the other, instead of a tight turn inside its own cell.
@@ -379,7 +380,7 @@ const SHOP_TYPES = {
   kiosk:  { name: 'Киоск', depth: 1, lot: [0, 0, 3, 1], bld: [[1, 1, 2, 2]], stalls: [[2.36, 0.62], [0.64, 0.62]] },
   square: { name: 'Квадратный', depth: 2, lot: [1, 0, 3, 2], bld: [[-1, 0, 1, 2]], stalls: [[2.36, 0.55], [2.36, 1.05], [2.36, 1.55]] },
   corner: { name: 'Угловой', depth: 2, lot: [0, 0, 2, 2], bld: [[0, 2, 3, 3], [2, 0, 3, 3]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
-  m:      { name: 'Средний', depth: 1, lot: [0, 0, 3, 1], bld: [[0, 1, 3, 2]], stalls: [[2.36, 0.62], [0.64, 0.62]] }, // Mini Motorways' plain destination: a block with a strip of lot in front
+  m:      { name: 'Средний', depth: 1, lot: [0, 0, 3, 1], bld: [[0, 1, 2, 3]], stalls: [[2.36, 0.62], [0.64, 0.62]] }, // Mini Motorways' plain destination: a block with a strip of lot in front
   long:   { name: 'Длинный', depth: 3, lot: [1, 0, 3, 3], bld: [[0, 0, 1, 3]], stalls: [[2.3, 0.5, 'h'], [2.3, 0.97, 'h'], [2.3, 1.44, 'h'], [2.3, 1.91, 'h'], [2.3, 2.38, 'h']] },
   twin:   { name: 'Сдвоенный', depth: 2, lot: [0, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
   twinB:  { name: 'Сдвоенный', depth: 2, lot: [0, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
@@ -393,8 +394,8 @@ const capOf = b => (SHOP_CAP[b.size] || 8) + (b.lvl ? 2 : 0), rateOf = b => (SHO
 function pickShopSize(){ const r = Math.random(), pick = w => { let t = 0; for (const [k, p] of w){ t += p; if (r < t) return k; } return w[w.length - 1][0]; }; // small ones first, bigger ones later in the game
   // small footprints, as in Mini Motorways: a block with a little lot; the big lots ('long', 'l') are kept only for old saves
   if (time < 240) return pick([['m', 0.4], ['kiosk', 0.3], ['square', 0.3]]);
-  if (time < 600) return pick([['m', 0.3], ['kiosk', 0.2], ['square', 0.22], ['corner', 0.16], ['twin', 0.12]]);
-  return pick([['m', 0.26], ['kiosk', 0.14], ['square', 0.22], ['corner', 0.18], ['twin', 0.2]]); }
+  if (time < 600) return pick([['m', 0.36], ['kiosk', 0.2], ['square', 0.3], ['twin', 0.14]]);
+  return pick([['m', 0.32], ['kiosk', 0.14], ['square', 0.32], ['twin', 0.22]]); } // every building is square, as in Mini Motorways (the L-shaped 'corner' is kept for old saves)
 function lanePt(b, u, v, out){ // a point on the in- or out-lane of the middle drive
   const F = DIRS[b.door], h = out ? F : [-F[0], -F[1]], p = shopPt(b, u, v); return [p[0] - h[1] * LANE, p[1] + h[0] * LANE]; }
 function shopPt(b, u, v){ const F = DIRS[b.door], R = DIRS[b.lat]; return [cx(b.i) + ((u - 1.5) * R[0] + (0.5 - v) * F[0]) * CELL, cy(b.i) + ((u - 1.5) * R[1] + (0.5 - v) * F[1]) * CELL]; }
@@ -1257,7 +1258,7 @@ function drawShop(b, colr, dk, e){
   if (b.twin){ const all = pads.splice(0); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const B of all){ x0 = Math.min(x0, B[0]); y0 = Math.min(y0, B[1]); x1 = Math.max(x1, B[0] + B[2]); y1 = Math.max(y1, B[1] + B[3]); } pads.push([x0, y0, x1 - x0, y1 - y0]); } // one pad under both halves
   for (const [grow, col] of [[3, P.lotEdge], [0, P.road]]){ ctx.fillStyle = col; // the pad is road: the drive runs straight on into it, one colour
     for (const B of pads){ rr(B[0] - grow, B[1] - grow, B[2] + grow * 2, B[3] + grow * 2, 11 + grow); ctx.fill(); } }
-  ctx.strokeStyle = P.road; ctx.lineWidth = CELL * 0.6; ctx.lineCap = 'butt'; // the entrance: an opening in the frame, no bump
+  ctx.strokeStyle = P.road; ctx.lineWidth = ROAD_W; ctx.lineCap = 'butt'; // the entrance: an opening in the frame, no bump
   for (const [a, z] of tongues){ ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(z[0], z[1]); ctx.stroke(); }
   if (b.twin && !b.lvl){ const r = SHOP_TYPES.twinB.bld[0], B = boxOf(b.twin, r[0], r[1], r[2], r[3], 6); // the spare plot, waiting for the shop to grow
     ctx.strokeStyle = P.lotEdge; ctx.globalAlpha = 0.7; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); rr(B[0], B[1], B[2], B[3], 4); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
@@ -1353,7 +1354,7 @@ function draw(){
   ctx.strokeStyle = P.bridge; ctx.lineWidth = CELL * 0.80;
   for (const i of bridgeOf.keys()) strokeCell(i);
   // roads
-  for (const [wd, colr, edge] of [[CELL * 0.6 + 3.5, P.roadEdge, true], [CELL * 0.6, P.road, false]]){
+  for (const [wd, colr, edge] of [[ROAD_W + 3.5, P.roadEdge, true], [ROAD_W, P.road, false]]){
     if (edge && P.roadEdge === P.road) continue;
     ctx.strokeStyle = colr; ctx.lineWidth = wd;
     for (const b of bld.values()){ const e = mid(b.i, d4to8(b.door)); ctx.beginPath(); ctx.moveTo(cx(b.i), cy(b.i)); ctx.lineTo(e[0], e[1]); ctx.stroke(); }
@@ -1361,7 +1362,7 @@ function draw(){
   }
   drawTunnels();
   if (dying.size){ ctx.save(); ctx.globalAlpha = 0.4; ctx.setLineDash([5, 6]); // an erased road still in use: faded and dashed until the cars on it are through
-    for (const [wd, colr] of [[CELL * 0.6, P.roadEdge], [CELL * 0.48, P.road]]){ ctx.strokeStyle = colr; ctx.lineWidth = wd; ctx.beginPath();
+    for (const [wd, colr] of [[ROAD_W + 3.5, P.roadEdge], [ROAD_W, P.road]]){ ctx.strokeStyle = colr; ctx.lineWidth = wd; ctx.beginPath();
       for (const k of dying){ const [a, b] = k.split(',').map(Number); ctx.moveTo(cx(a), cy(a)); ctx.lineTo(cx(b), cy(b)); } ctx.stroke(); }
     ctx.restore(); }
   // traffic lights: a ring in the middle, and for each approach a lamp on the far side of the crossing
@@ -1379,9 +1380,9 @@ function draw(){
       ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x + a[0] * d1 + px * hw, y + a[1] * d1 + py * hw);
       ctx.quadraticCurveTo(x + a[0] * dm + px * hw, y + a[1] * dm + py * hw, e1[0], e1[1]); ctx.lineTo(x, y); ctx.lineTo(e2[0], e2[1]);
       ctx.quadraticCurveTo(x + a[0] * dm - px * hw, y + a[1] * dm - py * hw, x + a[0] * d1 - px * hw, y + a[1] * d1 - py * hw); ctx.closePath(); ctx.fill(); };
-    for (const a of arms) flare(a, CELL * 0.6 + 3.5, P.roadEdge, RB_DISC + 1.8, 9);
+    for (const a of arms) flare(a, ROAD_W + 3.5, P.roadEdge, RB_DISC + 1.8, 9);
     ctx.fillStyle = P.roadEdge; ctx.beginPath(); ctx.arc(x, y, RB_DISC + 1.8, 0, 7); ctx.fill();
-    for (const a of arms) flare(a, CELL * 0.6, P.road, RB_DISC, 11);
+    for (const a of arms) flare(a, ROAD_W, P.road, RB_DISC, 11);
     ctx.fillStyle = P.road; ctx.beginPath(); ctx.arc(x, y, RB_DISC, 0, 7); ctx.fill();
     ctx.fillStyle = P.lotEdge; ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.arc(x, y, RB_ISLE + 3, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
     ctx.fillStyle = P.isle; ctx.beginPath(); ctx.arc(x, y, RB_ISLE, 0, 7); ctx.fill();
