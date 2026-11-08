@@ -578,7 +578,7 @@ function ringOf(n){ for (let d = 0; d < 8; d++){ const c = at8(n, d); if (c >= 0
 function armOk(n, c){ // n, a neighbour of the middle c, may be an arm: linked to c and at most straight on outwards
   const d = dir8(c, n), out = at8(n, d);
   for (const j of eOf(n)) if (j !== c && j !== out) return false;
-  return !occ.has(n) && !water.has(n) && !doors.has(n) && !hwOf.has(n) && !lights.has(n); }
+  return !occ.has(n) && !water.has(n) && !hwOf.has(n) && !lights.has(n); } // a driveway may be an arm too: a shop or house right off the ring
 const isArm = (n, c) => c >= 0 && rings.has(c) && adj8(n, c) && hasEdge(n, c) && armOk(n, c);
 function canRing(i){ // why a roundabout cannot go here, or '' if it can
   if (!roads.has(i)) return 'Кольцо ставится на перекрёсток';
@@ -587,7 +587,7 @@ function canRing(i){ // why a roundabout cannot go here, or '' if it can
   for (const r of rings) if (Math.max(Math.abs(col_(r) - col_(i)), Math.abs(row_(r) - row_(i))) <= 1) return 'Слишком близко к другому кольцу';
   // the ring itself is small: it needs its own cell and the four cells beside it; the corner cells may hold anything
   for (let d = 0; d < 8; d += 2){ const n = at8(i, d); if (n < 0 || !inPlay(n)) return 'Кольцу нужно место вокруг перекрёстка';
-    if (occ.has(n) || doors.has(n) || water.has(n)) return 'Рядом с перекрёстком стоит дом или вода — кольцо не влезет';
+    if (occ.has(n) || water.has(n) || (doors.has(n) && !hasEdge(n, i))) return 'Рядом с перекрёстком стоит дом или вода — кольцо не влезет';
     if (eOf(n).size && !(hasEdge(n, i) && armOk(n, i))) return 'Дороги у перекрёстка должны подходить к нему прямо'; }
   for (let d = 1; d < 8; d += 2){ const n = at8(i, d); if (n >= 0 && hasEdge(n, i) && !armOk(n, i)) return 'Дороги у перекрёстка должны подходить к нему прямо'; }
   return ''; }
@@ -1386,11 +1386,10 @@ function draw(){
     ctx.restore(); }
   // traffic lights: a ring in the middle, and for each approach a lamp on the far side of the crossing
   for (const [i, L] of lights){ const x = cx(i), y = cy(i);
-    for (const j of eOf(i)){ const d = dir8(i, j); if (d < 0) continue; const v = D8[d], l = Math.hypot(v[0], v[1]), hx = -v[0] / l, hy = -v[1] / l; // heading of a car coming from j
-      const px = x + hx * CELL * 0.5 - hy * CELL * 0.34, py = y + hy * CELL * 0.5 + hx * CELL * 0.34;
-      const go = L.clear <= 0 && L.g === lightAxis(i, j), col = go ? P.lampGo : P.lampStop;
-      ctx.globalAlpha = 0.28; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(px, py, 5.5, 0, 7); ctx.fill();
-      ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(px, py, 3.2, 0, 7); ctx.fill(); }
+    for (const j of eOf(i)){ const d = dir8(i, j); if (d < 0) continue; // two green lamps, in the middle of the road on both sides of the crossing, for the way that may go now
+      if (!(L.clear <= 0 && L.g === lightAxis(i, j))) continue; const v = D8[d], l = Math.hypot(v[0], v[1]), px = x + v[0] / l * CELL * 0.62, py = y + v[1] / l * CELL * 0.62;
+      ctx.globalAlpha = 0.3; ctx.fillStyle = P.lampGo; ctx.beginPath(); ctx.arc(px, py, 6.5, 0, 7); ctx.fill();
+      ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(px, py, 3.8, 0, 7); ctx.fill(); }
     ctx.fillStyle = P.road; ctx.strokeStyle = P.lampRing; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.arc(x, y, CELL * 0.15, 0, 7); ctx.fill(); ctx.stroke(); }
   // roundabouts: one big circle filling the 3×3 square; each arm flares smoothly into its rim, an island with the ring sign in the middle
   for (const i of rings){ const x = cx(i), y = cy(i), arms = [...eOf(i)].map(j => { const v = D8[dir8(i, j)], l = Math.hypot(v[0], v[1]); return [v[0] / l, v[1] / l]; });
