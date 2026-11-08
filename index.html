@@ -44,7 +44,7 @@
 /* Tokyo: a night map in Mini Motorways colours, whatever the system theme */
 :root[data-map="tokyo"]{
   --bg:#202128; --ground:#2b2c35; --dot:rgba(255,255,255,.05); --grid:rgba(255,255,255,.07);
-  --road:#5e606b; --road-edge:#5e606b; --bridge:#7d7f8a; --island:#3a3b44; --sign:#ecebe6; --isle:#22232a;
+  --road:#5e606b; --road-edge:#8e909b; --bridge:#7d7f8a; --island:#3a3b44; --sign:#ecebe6; --isle:#22232a;
   --water:#3b4866; --water-edge:#34405c; --deep:#334061; --shallow:#45537a; --wet:#2c3550; --sand:#2b2c35; --sand-dk:#2b2c35; --meadow:#2e2f39; --warm:#30313b;
   --rock:#45464f; --rock-hi:#575862; --rock-sh:#33343c; --tree:#3d5a4a; --tree-dk:#2e4639;
   --lot:#3a3b44; --lot-edge:#a3a5b0;
@@ -340,7 +340,7 @@ function reset(){
   sizeGrid();
   flies = []; dying = new Set(); E = new Map(); occ = new Map(); lights = new Map(); lightN = 0; roads = new Set(); doors = new Set(); bridgeOf = new Map(); bridgeSeq = 0; rings = new Set(); ringZone = new Set(); tunnelOf = new Map(); tunnelSeq = 0; hws = []; hwOf = new Map();
   bld = new Map(); cars = []; locks = new Map();
-  time = 0; trips = 0; over = false; spawnHouseT = T.firstHouse; spawnShopT = T.firstShop; colorsInPlay = 1;
+  nextHouse = null; time = 0; trips = 0; over = false; spawnHouseT = T.firstHouse; spawnShopT = T.firstShop; colorsInPlay = 1;
   budget = T.startRoads; bridgesN = MAPS[mapId].bridges; tunnelsN = MAPS[mapId].tunnels || 0; ringN = 0; hwN = 0; weekT = WEEK; week = 1; hwStart = -1;
   buildWater(); buildTerrain(); waterImg = null; applyTint(); startArea();
   $('over').hidden = true; $('weekBox').hidden = true; choosing = false; setPaused(false); setMode('draw');
@@ -369,7 +369,7 @@ const SHOP_TYPES = {
   kiosk:  { name: 'Киоск', depth: 1, lot: [0, 0, 3, 1], bld: [[1, 1, 2, 2]], stalls: [[2.36, 0.62], [0.64, 0.62]] },
   square: { name: 'Квадратный', depth: 2, lot: [1, 0, 3, 2], bld: [[-1, 0, 1, 2]], stalls: [[2.36, 0.55], [2.36, 1.05], [2.36, 1.55]] },
   corner: { name: 'Угловой', depth: 2, lot: [0, 0, 2, 2], bld: [[0, 2, 3, 3], [2, 0, 3, 3]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
-  m:      { name: 'Средний', depth: 2, lot: [0, 0, 3, 2], bld: [[0, 2, 3, 3]], stalls: [[2.36, 0.85], [0.64, 0.85], [2.36, 1.55], [0.64, 1.55]] },
+  m:      { name: 'Средний', depth: 1, lot: [0, 0, 3, 1], bld: [[0, 1, 3, 2]], stalls: [[2.36, 0.62], [0.64, 0.62]] }, // Mini Motorways' plain destination: a block with a strip of lot in front
   long:   { name: 'Длинный', depth: 3, lot: [1, 0, 3, 3], bld: [[0, 0, 1, 3]], stalls: [[2.3, 0.5, 'h'], [2.3, 0.97, 'h'], [2.3, 1.44, 'h'], [2.3, 1.91, 'h'], [2.3, 2.38, 'h']] },
   twin:   { name: 'Сдвоенный', depth: 2, lot: [0, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
   twinB:  { name: 'Сдвоенный', depth: 2, lot: [0, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
@@ -378,12 +378,13 @@ for (const k in SHOP_TYPES){ const T0 = SHOP_TYPES[k]; T0.lotCells = cellsOf(...
 const LEGACY_SHOP = { s: 'kiosk' }; // saves from before the shapes
 const stallsOf = b => SHOP_TYPES[b.size].stalls;
 // How many orders a shop holds before its timer starts, and how often it orders: small ones 6, big ones up to 10; a grown shop holds 2 more and orders a quarter faster.
-const SHOP_CAP = { kiosk: 6, square: 6, corner: 6, m: 8, long: 8, l: 10, twin: 5, twinB: 5 }, SHOP_RATE = { kiosk: 1.15, square: 1.1, corner: 1.1, m: 1, long: 1, l: 0.85, twin: 0.85, twinB: 0.85 };
+const SHOP_CAP = { kiosk: 6, square: 6, corner: 6, m: 6, long: 8, l: 10, twin: 5, twinB: 5 }, SHOP_RATE = { kiosk: 1.15, square: 1.1, corner: 1.1, m: 1, long: 1, l: 0.85, twin: 0.85, twinB: 0.85 };
 const capOf = b => (SHOP_CAP[b.size] || 8) + (b.lvl ? 2 : 0), rateOf = b => (SHOP_RATE[b.size] || 1) * (b.lvl ? 0.75 : 1);
 function pickShopSize(){ const r = Math.random(), pick = w => { let t = 0; for (const [k, p] of w){ t += p; if (r < t) return k; } return w[w.length - 1][0]; }; // small ones first, bigger ones later in the game
-  if (time < 240) return pick([['kiosk', 0.45], ['square', 0.3], ['corner', 0.25]]);
-  if (time < 600) return pick([['kiosk', 0.18], ['square', 0.2], ['corner', 0.2], ['m', 0.14], ['long', 0.16], ['twin', 0.12]]);
-  return pick([['kiosk', 0.08], ['square', 0.13], ['corner', 0.15], ['m', 0.14], ['long', 0.16], ['l', 0.18], ['twin', 0.16]]); }
+  // small footprints, as in Mini Motorways: a block with a little lot; the big lots ('long', 'l') are kept only for old saves
+  if (time < 240) return pick([['m', 0.4], ['kiosk', 0.3], ['square', 0.3]]);
+  if (time < 600) return pick([['m', 0.3], ['kiosk', 0.2], ['square', 0.22], ['corner', 0.16], ['twin', 0.12]]);
+  return pick([['m', 0.26], ['kiosk', 0.14], ['square', 0.22], ['corner', 0.18], ['twin', 0.2]]); }
 function lanePt(b, u, v, out){ // a point on the in- or out-lane of the middle drive
   const F = DIRS[b.door], h = out ? F : [-F[0], -F[1]], p = shopPt(b, u, v); return [p[0] - h[1] * LANE, p[1] + h[0] * LANE]; }
 function shopPt(b, u, v){ const F = DIRS[b.door], R = DIRS[b.lat]; return [cx(b.i) + ((u - 1.5) * R[0] + (0.5 - v) * F[0]) * CELL, cy(b.i) + ((u - 1.5) * R[1] + (0.5 - v) * F[1]) * CELL]; }
@@ -450,9 +451,10 @@ function canHouse(i){ if (!inPlay(i) || ringZone.has(i) || mount.has(i) || roads
     if (o && o.type === 'house' && dc && dr && !occ.has(idx(c + dc, r)) && !occ.has(idx(c, r + dr))) return false; } // only side by side, not corner to corner
   return true; }
 const clusterOf = h => { const out = new Set([h]), q = [h]; while (q.length){ const b = q.pop(); for (const [, j] of nb(b.i)){ const o = occ.get(j); if (o && o.type === 'house' && o.color === h.color && !out.has(o)){ out.add(o); q.push(o); } } } return out; };
-function besideHouse(h){ // a free cell beside h, across its entrance side, whose own entrance can face the same way
-  const cand = nb(h.i).filter(([d, j]) => d !== h.door && d !== (h.door + 2) % 4 && canHouse(j) && nb(j).some(([e, k]) => e === h.door && !occ.has(k) && !doors.has(k) && !water.has(k) && !mount.has(k) && inPlay(k)));
-  return cand.length ? cand[Math.floor(Math.random() * cand.length)][1] : -1; }
+function besideHouse(h){ // a free cell right next to h (not its driveway); side by side first, so the pair faces the same way
+  const free = (j, e) => nb(j).some(([d, k]) => d === e && !occ.has(k) && !doors.has(k) && !water.has(k) && !mount.has(k) && inPlay(k));
+  const cand = nb(h.i).filter(([d, j]) => j !== h.doorCell && canHouse(j)).map(([d, j]) => [j, free(j, h.door) ? 0 : 1 + Math.random()]);
+  cand.sort((a, b) => a[1] - b[1] + (Math.random() - 0.5) * 0.4); return cand.length ? cand[0][0] : -1; }
 function newClusterSpot(c){ // 3–6 cells from a shop of this colour (or anywhere if it has none), on open ground
   const shops = [...bld.values()].filter(b => b.type === 'shop' && b.color === c); if (!shops.length) return freeSpot();
   const sh = shops[Math.floor(Math.random() * shops.length)], c0 = col_(sh.doorCell), r0 = row_(sh.doorCell), cand = [];
@@ -461,11 +463,20 @@ function newClusterSpot(c){ // 3–6 cells from a shop of this colour (or anywhe
     if (near) continue; cand.push([i, d + Math.random() * 1.5]); }
   cand.sort((a, b) => a[1] - b[1]); for (const [i] of cand.slice(0, 8).sort(() => Math.random() - 0.5)) if (landSteps(sh.doorCell, i, 14) < Infinity) return i;
   return cand.length ? cand[0][0] : freeSpot(); }
-function spawnHouses(c){
+// The next houses are chosen a few seconds ahead and shown as little coloured dots on the ground, as in Mini Motorways.
+let nextHouse = null;
+function planHouses(c){
   const mates = [...bld.values()].filter(b => b.type === 'house' && b.color === c).sort(() => Math.random() - 0.5);
-  if (Math.random() < 0.72) for (const h of mates){ if (clusterOf(h).size >= 4) continue; const j = besideHouse(h); if (j >= 0 && place(j, 'house', c, h.door)) return; }
-  const i = newClusterSpot(c); if (i < 0) return; if (!place(i, 'house', c)) return;
-  if (Math.random() < 0.65){ const h = bld.get(i), j = besideHouse(h); if (j >= 0){ quiet = true; place(j, 'house', c, h.door); quiet = false; } } }
+  if (Math.random() < 0.75) for (const h of mates){ if (clusterOf(h).size >= 6) continue; const j = besideHouse(h); if (j >= 0) return { c, i: j, want: h.door, pair: false, t: 0 }; }
+  const i = newClusterSpot(c); return i < 0 ? null : { c, i, pair: Math.random() < 0.65, t: 0 }; }
+function spawnHouses(c){
+  const p = nextHouse && nextHouse.c === c && canHouse(nextHouse.i) ? nextHouse : planHouses(c); nextHouse = null; if (!p) return;
+  if (!place(p.i, 'house', c, p.want)) return;
+  if (p.pair){ const h = bld.get(p.i), j = besideHouse(h); if (j >= 0){ quiet = true; place(j, 'house', c, h.door); quiet = false; } } }
+function drawNextHouse(){ const p = nextHouse; if (!p || !inPlay(p.i)) return; p.t = Math.min(1, p.t + 0.03); const x = cx(p.i), y = cy(p.i), e = 1 - Math.pow(1 - p.t, 3), col = P.col[p.c];
+  ctx.globalAlpha = 0.9; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x - 3, y - 3, 6.5 * e, 0, 7); ctx.fill();
+  ctx.fillStyle = mixC(col, '#ffffff', 0.45); ctx.beginPath(); ctx.arc(x + 4, y + 4, 4.5 * e, 0, 7); ctx.fill();
+  if (p.pair){ ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x + 7, y - 6, 3.5 * e, 0, 7); ctx.fill(); } ctx.globalAlpha = 1; }
 function freeSpot(){
   const r0 = 3 + time / 25, mc = (area.c0 + area.c1) / 2, mr = (area.r0 + area.r1) / 2;
   for (let t = 0; t < 120; t++){
@@ -535,7 +546,7 @@ function canEdge(a, b){ // can a road join a and b directly?
 // ---------- roundabouts (Mini Motorways style) ----------
 // A roundabout takes the whole 3×3 square round its crossing. Roads reach it only as straight arms from the edge of that square
 // to the middle; nothing else may be drawn inside the square, and no house or shop is built there. Cars drive one big circle.
-const RB = CELL * 0.98, RB_DISC = CELL * 1.32, RB_ISLE = CELL * 0.6;
+const RB = CELL * 0.62, RB_DISC = CELL * 0.92, RB_ISLE = CELL * 0.3;
 const at8 = (i, d, n = 1) => { const c = col_(i) + D8[d][0] * n, r = row_(i) + D8[d][1] * n; return inb(c, r) ? idx(c, r) : -1; };
 function ringOf(n){ for (let d = 0; d < 8; d++){ const c = at8(n, d); if (c >= 0 && rings.has(c)) return c; } return -1; } // the roundabout whose square n lies in (not its middle)
 function armOk(n, c){ // n, a neighbour of the middle c, may be an arm: linked to c and at most straight on outwards
@@ -884,7 +895,7 @@ function stepCar(car, dt){
     let hit = null;
     while (tries < 4){ const q = at(step), chk = () => wouldHit(car, q[0], q[1], shown(q[2]), q[2], car.passCar) || wouldHit(car, q[0], q[1], q[2], undefined, car.passCar);
       hit = chk();
-      if (hit && hit.holdBy === car.id && car.holdBy === hit.id && car.holdT > 1.5 && hit.holdT > 1.5 && first(hit) && !blocked && (car.gap === undefined || car.gap > CAR_L * 2 + MIN_GAP) && (() => { const z = at(CAR_L * 1.4); return !wouldHit(car, z[0], z[1], z[2], undefined, hit); })()){ car.passCar = hit; car.passT = 0; hit = chk(); } // only with room to get clear
+      if (hit && ((hit.holdBy === car.id && car.holdBy === hit.id && car.holdT > 1.5 && hit.holdT > 1.5 && first(hit)) || (car.stuck > 18 && car.holdBy === hit.id && (hit.stuck || 0) > 1)) && !blocked && (car.gap === undefined || car.gap > CAR_L * 2 + MIN_GAP) && (() => { const z = at(CAR_L * 1.4); return !wouldHit(car, z[0], z[1], z[2], undefined, hit); })()){ car.passCar = hit; car.passT = 0; hit = chk(); } // only with room to get clear
       if (!hit) break; step *= 0.4; tries++; }
     if (tries === 4){ step = 0; car.v = 0; }
     const by = tries === 4 && hit ? hit.id : -1; car.holdT = by >= 0 && by === car.holdBy ? (car.holdT || 0) + dt : 0; car.holdBy = by; }
@@ -1020,7 +1031,8 @@ function tick(dt){
       else b.overT = Math.max(0, b.overT - dt * 2);
     } }
   spawnHouseT -= dt; spawnShopT -= dt;
-  if (spawnHouseT <= 0){ spawnHouses(neediestColor()); spawnHouseT = T.house + Math.random() * T.houseRand; }
+  if (spawnHouseT <= 8 && !nextHouse){ nextHouse = planHouses(neediestColor()); }
+  if (spawnHouseT <= 0){ spawnHouses(nextHouse ? nextHouse.c : neediestColor()); spawnHouseT = T.house + Math.random() * T.houseRand; }
   if (spawnShopT <= 0){
     let c = Math.floor(Math.random() * colorsInPlay), fresh = false;
     if (colorsInPlay < 4 && Math.random() < 0.5){ c = colorsInPlay; fresh = true; }
@@ -1075,7 +1087,11 @@ function strokeCell(i){
   ctx.beginPath();
   if (n.length === 2 && n[0] !== OPP8(n[1])){ const a = tip(0), b = tip(1); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo(C[0], C[1], b[0], b[1]); }
   else if (n.length === 0){ ctx.moveTo(C[0], C[1]); ctx.lineTo(C[0] + 0.01, C[1]); }
-  else for (let k = 0; k < n.length; k++){ const e = tip(k); ctx.moveTo(C[0], C[1]); ctx.lineTo(e[0], e[1]); }
+  else { for (let k = 0; k < n.length; k++){ const e = tip(k); ctx.moveTo(C[0], C[1]); ctx.lineTo(e[0], e[1]); }
+    // a crossing gets rounded inside corners too: neighbouring arms (45° or 90° apart) are joined by a curve, so no square corner is left
+    if (n.length >= 3){ const ord = n.map((d, k) => [d, k]).sort((a, b) => a[0] - b[0]);
+      for (let q = 0; q < ord.length; q++){ const A = ord[q], B = ord[(q + 1) % ord.length], gap = (B[0] - A[0] + 8) % 8; if (gap < 1 || gap > 2) continue;
+        const a = tip(A[1]), b = tip(B[1]); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo(C[0], C[1], b[0], b[1]); } } }
   ctx.stroke();
 }
 let waterImg = null, waterTheme = '';
@@ -1204,11 +1220,12 @@ function drawShop(b, colr, dk, e){
   { const H = shopH(b); ctx.fillStyle = P.shadow; for (const r of T0.bld){ const B = joinedBox(b, r, [T0.lot], 0); rr(B[0] + H * 0.7, B[1] + H * 0.5, B[2], B[3], 8); ctx.fill(); } } // the building's shadow falls on the ground, under the lot
   // as in Mini Motorways: the lot and the building sit on one pad with a light frame, and a short tongue of the pad runs out to the road
   const parts = b.twin ? [b, b.twin] : [b], pads = [], tongues = [];
-  for (const s0 of parts){ const T1 = SHOP_TYPES[s0.size]; for (const r of [T1.lot, ...T1.bld]) pads.push(boxOf(s0, r[0], r[1], r[2], r[3], 1)); tongues.push(boxOf(s0, 1.5 - 0.3, -0.5, 1.5 + 0.3, 0.2, 0)); }
+  for (const s0 of parts){ const T1 = SHOP_TYPES[s0.size]; for (const r of [T1.lot, ...T1.bld]) pads.push(boxOf(s0, r[0], r[1], r[2], r[3], 1)); tongues.push([shopPt(s0, 1.5, -0.5), shopPt(s0, 1.5, 0.35)]); }
   if (b.twin){ const all = pads.splice(0); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const B of all){ x0 = Math.min(x0, B[0]); y0 = Math.min(y0, B[1]); x1 = Math.max(x1, B[0] + B[2]); y1 = Math.max(y1, B[1] + B[3]); } pads.push([x0, y0, x1 - x0, y1 - y0]); } // one pad under both halves
-  for (const [grow, col] of [[3, P.lotEdge], [0, P.lot]]){ ctx.fillStyle = col;
-    for (const B of pads){ rr(B[0] - grow, B[1] - grow, B[2] + grow * 2, B[3] + grow * 2, 11 + grow); ctx.fill(); }
-    for (const tg of tongues){ rr(tg[0] - grow, tg[1] - grow, tg[2] + grow * 2, tg[3] + grow * 2, Math.min(tg[2], tg[3]) / 2 + grow); ctx.fill(); } }
+  for (const [grow, col] of [[3, P.lotEdge], [0, P.road]]){ ctx.fillStyle = col; // the pad is road: the drive runs straight on into it, one colour
+    for (const B of pads){ rr(B[0] - grow, B[1] - grow, B[2] + grow * 2, B[3] + grow * 2, 11 + grow); ctx.fill(); } }
+  ctx.strokeStyle = P.road; ctx.lineWidth = CELL * 0.6; ctx.lineCap = 'butt'; // the entrance: an opening in the frame, no bump
+  for (const [a, z] of tongues){ ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(z[0], z[1]); ctx.stroke(); }
   if (b.twin && !b.lvl){ const r = SHOP_TYPES.twinB.bld[0], B = boxOf(b.twin, r[0], r[1], r[2], r[3], 6); // the spare plot, waiting for the shop to grow
     ctx.strokeStyle = P.lotEdge; ctx.globalAlpha = 0.7; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); rr(B[0], B[1], B[2], B[3], 4); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
   ctx.strokeStyle = colr; ctx.globalAlpha = 0.75; ctx.lineWidth = 2; ctx.lineCap = 'round';
@@ -1303,7 +1320,7 @@ function draw(){
   ctx.strokeStyle = P.bridge; ctx.lineWidth = CELL * 0.80;
   for (const i of bridgeOf.keys()) strokeCell(i);
   // roads
-  for (const [wd, colr, edge] of [[CELL * 0.6 + 2.5, P.roadEdge, true], [CELL * 0.6, P.road, false]]){
+  for (const [wd, colr, edge] of [[CELL * 0.6 + 3.5, P.roadEdge, true], [CELL * 0.6, P.road, false]]){
     if (edge && P.roadEdge === P.road) continue;
     ctx.strokeStyle = colr; ctx.lineWidth = wd;
     for (const b of bld.values()){ const e = mid(b.i, d4to8(b.door)); ctx.beginPath(); ctx.moveTo(cx(b.i), cy(b.i)); ctx.lineTo(e[0], e[1]); ctx.stroke(); }
@@ -1329,14 +1346,14 @@ function draw(){
       ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x + a[0] * d1 + px * hw, y + a[1] * d1 + py * hw);
       ctx.quadraticCurveTo(x + a[0] * dm + px * hw, y + a[1] * dm + py * hw, e1[0], e1[1]); ctx.lineTo(x, y); ctx.lineTo(e2[0], e2[1]);
       ctx.quadraticCurveTo(x + a[0] * dm - px * hw, y + a[1] * dm - py * hw, x + a[0] * d1 - px * hw, y + a[1] * d1 - py * hw); ctx.closePath(); ctx.fill(); };
-    for (const a of arms) flare(a, CELL * 0.6 + 2.5, P.roadEdge, RB_DISC + 1.3, 9);
-    ctx.fillStyle = P.roadEdge; ctx.beginPath(); ctx.arc(x, y, RB_DISC + 1.3, 0, 7); ctx.fill();
+    for (const a of arms) flare(a, CELL * 0.6 + 3.5, P.roadEdge, RB_DISC + 1.8, 9);
+    ctx.fillStyle = P.roadEdge; ctx.beginPath(); ctx.arc(x, y, RB_DISC + 1.8, 0, 7); ctx.fill();
     for (const a of arms) flare(a, CELL * 0.6, P.road, RB_DISC, 11);
     ctx.fillStyle = P.road; ctx.beginPath(); ctx.arc(x, y, RB_DISC, 0, 7); ctx.fill();
     ctx.fillStyle = P.lotEdge; ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.arc(x, y, RB_ISLE + 3, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
     ctx.fillStyle = P.isle; ctx.beginPath(); ctx.arc(x, y, RB_ISLE, 0, 7); ctx.fill();
     ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3.2; ctx.beginPath(); ctx.arc(x, y, RB_ISLE * 0.42, 0, 7); ctx.stroke(); }
-  drawTrees();
+  drawTrees(); drawNextHouse();
   // buildings
   for (const b of bld.values()){ const x = cx(b.i), y = cy(b.i), colr = P.col[b.color], dk = P.dark[b.color];
     const pop = Math.min(1, b.t / 0.35), e = 1 - Math.pow(1 - pop, 3);
