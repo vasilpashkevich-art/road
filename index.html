@@ -435,7 +435,6 @@ function placeShop(seed, color, size){
   size = size || pickShopSize(); const T0 = SHOP_TYPES[size], all = [...T0.lotCells, ...T0.bldCells];
   const opts = [];
   for (let f = 0; f < 4; f++) for (const lat of [(f + 1) & 3, (f + 3) & 3]){ const F = DIRS[f], R = DIRS[lat];
-    if (T0.loop && loopCW(f, lat)) continue; // a loop lot is built the way round where cars keep right and circle counter-clockwise, with the shop on the way out
     for (const [cu, cv] of all){ // the seed may be any cell of the footprint
       const gc = col_(seed) - R[0] * (cu - 1) + F[0] * cv, gr = row_(seed) - R[1] * (cu - 1) + F[1] * cv; if (!inb(gc, gr)) continue;
       const G = idx(gc, gr), fit = shopFit(G, f, lat, size); if (!fit) continue;
@@ -1004,7 +1003,7 @@ function loopPts(b){ // always counter-clockwise on screen, as on a roundabout: 
     for (let k = 1; k < 8; k++){ const a = Math.PI * k / 8, r = (uo - ui) / 2; pts.push(shopPt(b, (ui + uo) / 2 - Math.cos(a) * r, LOOP_END + Math.sin(a) * Math.abs(r) * 1.4)); }
     pts.push(shopPt(b, uo, LOOP_END), shopPt(b, uo, 0.55)); return pts; };
   const p = make(LOOP_IN, LOOP_OUT); let area = 0; for (let k = 0; k < p.length; k++){ const q = p[k], r = p[(k + 1) % p.length]; area += q[0] * r[1] - r[0] * q[1]; }
-  return area > 0 ? make(LOOP_OUT, LOOP_IN) : p; } // y points down on screen: a positive area is clockwise, so go round the other way
+  return p; } // in along the far side, round the end, back along the shop: clockwise or counter-clockwise depending on which side the shop stands
 function loopAt(b, vs){ const P = loopPts(b), q = shopPt(b, LOOP_OUT, vs); let best = 0, bd = 1e9, acc = 0, at = 0; // arc length along the loop of the bay at vs
   for (let k = 1; k < P.length; k++){ const L = Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1]);
     for (let n = 0; n <= 10; n++){ const x = P[k - 1][0] + (P[k][0] - P[k - 1][0]) * n / 10, y = P[k - 1][1] + (P[k][1] - P[k - 1][1]) * n / 10, d = Math.hypot(x - q[0], y - q[1]); if (d < bd){ bd = d; best = acc + L * n / 10; } } acc += L; }
