@@ -581,7 +581,7 @@ function inUse(a, b){ for (const c of cars){ if (c.phase !== 'go' || !c.path) co
 function stepDying(){ for (const k of [...dying]){ const [a, b] = k.split(',').map(Number); if (!hasEdge(a, b)){ dying.delete(k); continue; } if (!inUse(a, b)){ dying.delete(k); delEdge(a, b); if (!roads.has(a)) cleanup(a); if (!roads.has(b)) cleanup(b); autoDoor(a); autoDoor(b); } } }
 function gnb(u){ const out = [...eOf(u)].filter(v => !dying.has(ekey(u, v))); const h = hwOf.get(u); if (h && roads.has(u)) out.push(h.partner); return out; }
 function linkCount(i){ return eOf(i).size + (hwOf.has(i) ? 1 : 0); }
-const isJunction = i => i >= 0 && roads.has(i) && linkCount(i) >= 3;
+const isJunction = i => i >= 0 && roads.has(i) && (linkCount(i) >= 3 || hwOf.has(i)); // a highway end is a crossing too: cars coming off the ramp and going up it take turns, they cannot meet head-on
 function bfsNodes(start, tb){
   const par = new Map([[start, -1]]), q = [start]; let f = -1;
   for (let h = 0; h < q.length; h++){ const u = q[h];
@@ -874,7 +874,7 @@ function stepCar(car, dt){
   let vt = VMAX * (seg.kind === 'hw' ? 2 : 1), blocked = false; car.gap = undefined;
   { // ease off before a bend or the roundabout and pick up again after it
     // a plain crossing (no light, no roundabout) is slow, as in Mini Motorways: cars creep across it; four ways are slower than three
-    const crossV = g => g.cell >= 0 && jGroup.has(g.cell) && !rings.has(g.cell) && !lights.has(g.cell) && !doors.has(g.cell) ? VMAX * (linkCount(g.cell) >= 4 ? T.cross4 : T.cross3) : Infinity;
+    const crossV = g => g.cell >= 0 && jGroup.has(g.cell) && !rings.has(g.cell) && !hwOf.has(g.cell) && !lights.has(g.cell) && !doors.has(g.cell) ? VMAX * (linkCount(g.cell) >= 4 ? T.cross4 : T.cross3) : Infinity;
     const bendV = g => Math.min(crossV(g), g.kind === 'curve' ? VMAX * 0.75 : (g.kind === 'poly' ? VMAX * 0.68 : Infinity));
     vt = Math.min(vt, bendV(seg)); const nx = car.segs[car.si + 1];
     if (nx){ const vb = bendV(nx); if (vb < Infinity) vt = Math.min(vt, Math.sqrt(vb * vb + 2 * CELL * 4 * Math.max(0, seg.len - car.s))); } }
