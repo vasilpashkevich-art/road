@@ -279,7 +279,7 @@ const midO = (i, d) => { const m = mid(i, d), j = at8(i, d), a = offOf(i), b = j
 // Smooth corners: a plain bend between two plain straight pieces is drawn (and driven) as one wide curve from the middle of one straight cell
 // to the middle of the other, instead of a tight turn inside its own cell.
 const liveNb = i => [...eOf(i)].filter(j => !dying.has(ekey(i, j)));
-const plainCell = i => roads.has(i) && !bld.has(i) && !bridgeOf.has(i) && !water.has(i) && !mount.has(i) && !hwOf.has(i) && !rings.has(i) && !ringZone.has(i) && !lights.has(i) && !doors.has(i);
+const plainCell = i => roads.has(i) && !bld.has(i) && !bridgeOf.has(i) && !water.has(i) && !mount.has(i) && !hwOf.has(i) && !rings.has(i) && !ringZone.has(i) && !lights.has(i) && !doors.has(i) && (!rings.size || ringOf(i) < 0);
 function straightCell(n){ const l = liveNb(n); return plainCell(n) && l.length === 2 && adj8(n, l[0]) && adj8(n, l[1]) && dir8(n, l[0]) === OPP8(dir8(n, l[1])); }
 function bendCell(i){ const l = liveNb(i); return l.length === 2 && adj8(i, l[0]) && adj8(i, l[1]) && dir8(i, l[0]) !== OPP8(dir8(i, l[1])); }
 function smoothCorner(i){ if (!plainCell(i) || !bendCell(i)) return null; const l = liveNb(i);
@@ -604,29 +604,28 @@ function canEdge(a, b){ // can a road join a and b directly?
 const RB = CELL * 0.62, RB_DISC = CELL * 0.92, RB_ISLE = CELL * 0.3;
 const at8 = (i, d, n = 1) => { const c = col_(i) + D8[d][0] * n, r = row_(i) + D8[d][1] * n; return inb(c, r) ? idx(c, r) : -1; };
 function ringOf(n){ for (let d = 0; d < 8; d++){ const c = at8(n, d); if (c >= 0 && rings.has(c)) return c; } return -1; } // the roundabout whose square n lies in (not its middle)
-function armOk(n, c){ // n, a neighbour of the middle c, may be an arm: linked to c and at most straight on outwards
-  const d = dir8(c, n), out = at8(n, d);
-  for (const j of eOf(n)) if (j !== c && j !== out) return false;
+function armOk(n, c){ // n, a neighbour of the middle c, may be an arm: linked to c; past it the road may go on straight or turn, but not hug the ring
+  for (const j of eOf(n)) if (j !== c && adj8(j, c)) return false;
   return !occ.has(n) && !water.has(n) && !hwOf.has(n) && !lights.has(n); } // a driveway may be an arm too: a shop or house right off the ring
 const isArm = (n, c) => c >= 0 && rings.has(c) && adj8(n, c) && hasEdge(n, c) && armOk(n, c);
 function canRing(i){ // why a roundabout cannot go here, or '' if it can
-  if (!roads.has(i)) return 'Кольцо ставится на перекрёсток';
+  if (!roads.has(i)) return 'Кольцо ставится на дорогу';
   if (bridgeOf.has(i) || water.has(i)) return 'На мосту кольцо не поставить';
   if (hwOf.has(i) || lights.has(i) || doors.has(i)) return 'Здесь кольцо не встанет';
   for (const r of rings) if (Math.max(Math.abs(col_(r) - col_(i)), Math.abs(row_(r) - row_(i))) <= 1) return 'Слишком близко к другому кольцу';
   // the ring itself is small: it needs its own cell and the four cells beside it; the corner cells may hold anything
   for (let d = 0; d < 8; d += 2){ const n = at8(i, d); if (n < 0 || !inPlay(n)) return 'Кольцу нужно место вокруг перекрёстка';
     if (occ.has(n) || water.has(n) || (doors.has(n) && !hasEdge(n, i))) return 'Рядом с перекрёстком стоит дом или вода — кольцо не влезет';
-    if (eOf(n).size && !(hasEdge(n, i) && armOk(n, i))) return 'Дороги у перекрёстка должны подходить к нему прямо'; }
-  for (let d = 1; d < 8; d += 2){ const n = at8(i, d); if (n >= 0 && hasEdge(n, i) && !armOk(n, i)) return 'Дороги у перекрёстка должны подходить к нему прямо'; }
+    if (eOf(n).size && !(hasEdge(n, i) && armOk(n, i))) return 'Рядом проходит другая дорога — кольцо её заденет'; }
+  for (let d = 1; d < 8; d += 2){ const n = at8(i, d); if (n >= 0 && hasEdge(n, i) && !armOk(n, i)) return 'Рядом проходит другая дорога — кольцо её заденет'; }
   return ''; }
 function ringBlocksEdge(a, b){ // an edge that would cut into a roundabout's square
   for (const [x, y] of [[a, b], [b, a]]){
-    if (rings.has(x)){ const d = dir8(x, y); if (d < 0) return true; const out = at8(y, d); for (const j of eOf(y)) if (j !== out) return true; if (occ.has(y) || doors.has(y)) return true; continue; } // a new arm: the cell beside may only lead straight out
+    if (rings.has(x)){ const d = dir8(x, y); if (d < 0) return true; for (const j of eOf(y)) if (adj8(j, x)) return true; if (occ.has(y) || doors.has(y)) return true; continue; } // a new arm: the cell beside may only lead straight out
     const c = ringOf(x); if (c < 0) continue;
     if (y === c) continue;
     const d = dir8(c, x);
-    if (hasEdge(x, c) || (d & 1) === 0){ if (y !== at8(x, d)) return true; if (eOf(x).size && !hasEdge(x, c)) return true; continue; } // an arm, or a cell beside the ring: only straight out
+    if (hasEdge(x, c) || (d & 1) === 0){ if (adj8(y, c)) return true; if (eOf(x).size && !hasEdge(x, c)) return true; continue; } // an arm, or a cell beside the ring: out in any direction that does not hug the ring
     if (adj8(y, c)) return true; } // a corner cell is free, but its roads must not cut into the ring
   if (dir8(a, b) & 1){ const c1 = idx(col_(a), row_(b)), c2 = idx(col_(b), row_(a)); if (rings.has(c1) || rings.has(c2)) return true; }
   return false; }
@@ -670,22 +669,25 @@ function ringSeg(i, din, dout, k){
   pts.push([e1[0] + ro[0], e1[1] + ro[1]]);
   return mk('poly', null, null, null, k, i, pts);
 }
-function bigRing(c, a1, a2, k){ // the way round a 3×3 roundabout: in along arm a1, counter-clockwise round the circle, out along arm a2
+function bigRing(c, a1, a2, k, b1, b2){ // the way round a 3×3 roundabout: in along arm a1, counter-clockwise round the circle, out along arm a2
   const d1 = dir8(c, a1), d2 = dir8(c, a2), C = [cx(c), cy(c)], u = d => { const v = D8[d], l = Math.hypot(v[0], v[1]); return [v[0] / l, v[1] / l]; };
   const v1 = u(d1), v2 = u(d2), r1 = [v1[1] * LANE, -v1[0] * LANE], r2 = [-v2[1] * LANE, v2[0] * LANE]; // lane offsets: coming in, going out (keep right)
   const R1 = Math.hypot(D8[d1][0], D8[d1][1]) * CELL * 1.5, R2 = Math.hypot(D8[d2][0], D8[d2][1]) * CELL * 1.5;
   const ti = Math.atan2(v1[1], v1[0]), to = Math.atan2(v2[1], v2[0]); let D = ti - to; while (D <= 0.35) D += Math.PI * 2; while (D > Math.PI * 2 + 0.35) D -= Math.PI * 2;
-  const P = [[C[0] + v1[0] * R1 + r1[0], C[1] + v1[1] * R1 + r1[1]], [C[0] + v1[0] * (RB + CELL * 0.42) + r1[0], C[1] + v1[1] * (RB + CELL * 0.42) + r1[1]]];
+  // an arm may turn right past the ring: then the way runs from the arm's far side (where the road goes on) straight into the circle
+  const side = (a, b) => { const hx = cx(b) - cx(a), hy = cy(b) - cy(a), l = Math.hypot(hx, hy); return [(cx(a) + cx(b)) / 2 - hy / l * LANE, (cy(a) + cy(b)) / 2 + hx / l * LANE]; };
+  const bent1 = b1 >= 0 && b1 !== at8(a1, d1), bent2 = b2 >= 0 && b2 !== at8(a2, d2), L1 = bent1 ? RB + CELL * 0.22 : RB + CELL * 0.42, L2 = bent2 ? RB + CELL * 0.22 : RB + CELL * 0.42;
+  const P = [bent1 ? side(b1, a1) : [C[0] + v1[0] * R1 + r1[0], C[1] + v1[1] * R1 + r1[1]], [C[0] + v1[0] * L1 + r1[0], C[1] + v1[1] * L1 + r1[1]]];
   const ph = 0.5, N = Math.max(3, Math.ceil((D - 2 * ph) / 0.3));
   for (let s = 0; s <= N; s++){ const t = ti - ph - (D - 2 * ph) * s / N; P.push([C[0] + Math.cos(t) * RB, C[1] + Math.sin(t) * RB]); }
-  P.push([C[0] + v2[0] * (RB + CELL * 0.42) + r2[0], C[1] + v2[1] * (RB + CELL * 0.42) + r2[1]], [C[0] + v2[0] * R2 + r2[0], C[1] + v2[1] * R2 + r2[1]]);
+  P.push([C[0] + v2[0] * L2 + r2[0], C[1] + v2[1] * L2 + r2[1]], bent2 ? side(a2, b2) : [C[0] + v2[0] * R2 + r2[0], C[1] + v2[1] * R2 + r2[1]]);
   return mk('poly', null, null, null, k, c, crPts(P)); }
 function buildGeom(path){
   const segs = [];
   for (let k = 0; k < path.length; k++){
     const i = path[k], prev = k > 0 ? path[k-1] : -1, next = k < path.length - 1 ? path[k+1] : -1;
     if (k > 0 && k < path.length - 1 && ((rings.has(next) && isArm(i, next) && k + 2 < path.length && isArm(path[k + 2], next)) || (rings.has(prev) && isArm(i, prev) && k >= 2 && isArm(path[k - 2], prev)))) continue; // an arm is part of its roundabout
-    if (rings.has(i) && prev >= 0 && next >= 0 && isArm(prev, i) && isArm(next, i) && k >= 2 && k + 2 < path.length){ segs.push(bigRing(i, prev, next, k)); continue; }
+    if (rings.has(i) && prev >= 0 && next >= 0 && isArm(prev, i) && isArm(next, i) && k >= 2 && k + 2 < path.length){ segs.push(bigRing(i, prev, next, k, path[k - 2], path[k + 2])); continue; }
     const din = prev >= 0 && adj8(prev, i) ? dir8(i, prev) : -1, dout = next >= 0 && adj8(i, next) ? dir8(i, next) : -1;
     const C = ctr(i), mid = midO;
     if (din >= 0 && dout >= 0){
@@ -1684,7 +1686,7 @@ let ringSpots = [], ringKey = '';
 function ringCandidates(){ const key = netV + ':' + roads.size + ':' + rings.size + ':' + bld.size + ':' + area.c0 + ':' + area.r0;
   if (key !== ringKey){ ringKey = key; ringSpots = [...roads].filter(i => inPlay(i) && eOf(i).size >= 3 && !canRing(i)); } return ringSpots; }
 function ringHint(){ if (hoverCell >= 0 && roads.has(hoverCell) && !rings.has(hoverCell)){ const w = canRing(hoverCell); if (w) return w; return 'Нажми — кольцо встанет здесь'; }
-  return ringCandidates().length ? 'Зелёным отмечены перекрёстки, где поставится кольцо' : 'Сейчас кольцу негде встать: нужен перекрёсток, к которому дороги подходят прямо и рядом нет домов и воды'; }
+  return ringCandidates().length ? 'Зелёным отмечены перекрёстки, где поставится кольцо' : 'Кольцо можно поставить на любую дорогу или перекрёсток, если рядом нет домов, воды и другой дороги'; }
 function drawRingSpots(){ const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
   for (const i of ringCandidates()){ if (i === hoverCell) continue; const x = cx(i), y = cy(i);
     ctx.globalAlpha = 0.16; ctx.fillStyle = P.lampGo; ctx.beginPath(); ctx.arc(x, y, RB_DISC + 6, 0, 7); ctx.fill();
@@ -1874,7 +1876,7 @@ const TUT = [
   { text: () => 'Ошибся с дорогой — выбери внизу «Стереть»' + (touchUI ? '' : ' или веди правой кнопкой мыши') + '. ' + (touchUI ? 'Двумя пальцами' : 'Колёсиком') + ' можно приблизить карту.', ok: true, min: 6 },
   { text: () => 'Город растёт: каждую минуту — новая неделя, свежие дороги и награда на выбор. Удачи!', ok: true, min: 5 } ];
 const TOOL_TIPS = {
-  ring: () => ringN > 0 && 'Появилось кольцо. Выбери «Кольцо» — подходящие перекрёстки подсветятся зелёным; дороги должны подходить к ним прямо, рядом не должно быть домов и воды.',
+  ring: () => ringN > 0 && 'Появилось кольцо. Выбери «Кольцо» — подходящие перекрёстки подсветятся зелёным; кольцо можно поставить и на простую дорогу; рядом не должно быть домов и воды.',
   hw: () => hwN > 0 && 'Появилось шоссе. Выбери «Шоссе» внизу и коснись двух дорог — оно пройдёт над домами и рекой. Кружок посередине шоссе можно тянуть, чтобы изогнуть его.',
   light: () => lightN > 0 && 'Появился светофор. Выбери «Светофор» и коснись перекрёстка, где сходятся три дороги и больше.',
   bridge: () => bridgesN > 0 && week > 1 && 'Мосты ставятся сами, когда ведёшь дорогу через реку.' };
