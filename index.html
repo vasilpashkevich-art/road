@@ -98,6 +98,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 .maps{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
 .map{display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:0 0 10px;border-radius:16px;overflow:hidden;background:var(--ground);border:2px solid var(--accent);text-align:left;white-space:normal}
 .map canvas{position:static;display:block;width:100%;height:auto;margin-bottom:6px}
+.map .mshot{display:block;width:100%;aspect-ratio:252/140;object-fit:cover;margin-bottom:6px;background:var(--ground)}
 .mname{font-weight:800;font-size:15px;padding:0 12px;color:var(--fg)}
 .mdesc{font-weight:600;font-size:13px;padding:0 12px;color:var(--muted)}
 .map.locked{border-style:dashed;border-color:var(--panel-edge);cursor:default}
@@ -195,7 +196,7 @@ const WEEK = 60;
 // Tuned on 32 autoplayer games (3×3 parking-lot shops, big roundabouts, zero body contacts): calm first ~8 min, loss around 9 min for the bot.
 const T = { startRoads: 25, weekRoads: 15, offerRoads: 12,
   cross3: 0.45, cross4: 0.3, grow: 200, // speed share across a plain crossing
-  pinBase: 6.5, pinRand: 3.5, ramp: 1100, rampFloor: 0.45, pinMax: 8, overflow: 22,
+  pinBase: 8, pinRand: 4, ramp: 1100, rampFloor: 0.45, pinMax: 8, overflow: 22,
   house: 15, houseRand: 8, shop: 62, shopRand: 15, firstHouse: 10, firstShop: 30 };
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 const $ = id => document.getElementById(id);
@@ -1055,7 +1056,7 @@ function tick(dt){
     } }
   spawnHouseT -= dt; spawnShopT -= dt;
   const nH = [...bld.values()].filter(b => b.type === 'house').length, nS = [...bld.values()].filter(b => b.type === 'shop' && !isTail(b)).length;
-  const perShop = 2 + 3 * Math.max(0, Math.min(1, (time - 300) / 1500)); // houses per shop: 2 in the first minutes, 5 after half an hour, as in Mini Motorways
+  const perShop = 3 + 2 * Math.max(0, Math.min(1, (time - 300) / 1500)); // houses per shop: 2 in the first minutes, 5 after half an hour, as in Mini Motorways
   if (nH >= Math.ceil(perShop * nS) + 1){ spawnHouseT = Math.max(spawnHouseT, 4); nextHouse = null; } // enough houses for now: wait for the next shop
   if (spawnHouseT <= 8 && !nextHouse){ nextHouse = planHouses(neediestColor()); }
   if (spawnHouseT <= 0){ spawnHouses(nextHouse ? nextHouse.c : neediestColor()); spawnHouseT = T.house + Math.random() * T.houseRand; }
@@ -1091,7 +1092,7 @@ function resize(){
 function placeCamera(snap, dt){
   const want = { x: area.c0 * CELL, y: area.r0 * CELL, w: (area.c1 - area.c0) * CELL, h: (area.r1 - area.r0) * CELL };
   if (!view || snap) view = { ...want };
-  else { const k = Math.min(1, (dt || 0) * 2.2); for (const key of ['x', 'y', 'w', 'h']) view[key] += (want[key] - view[key]) * k; }
+  else { const k = Math.min(1, (dt || 0) * 0.35); for (const key of ['x', 'y', 'w', 'h']) view[key] += (want[key] - view[key]) * k; } // the town opens up slowly, over several seconds, as the camera eases out
   const dock = document.querySelector('.dock'), padB = (dock ? dock.offsetHeight : 48) + 18; // room for the tool dock
   const fit = Math.min(W / (view.w + 16), (Hh - padB) / (view.h + 16)); scale = fit * uz; viewH = Hh - padB;
   // the player's zoom and pan sit on top of the framing, and never let the map slide out of sight
@@ -1679,15 +1680,15 @@ function drawMini(c, id){ // a little picture of the map: its water, a shop and 
   const x = c.getContext('2d'), w = c.width, h = c.height, keep = { mapId, water, cols, rows, mount, trees };
   { const root = document.documentElement, dark = root.dataset.theme === 'dark' || (root.dataset.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches); x.fillStyle = id === 'tokyo' ? '#2b2c35' : TINT[id] ? TINT[id][dark ? 'dark' : 'light'][0] : P.ground; } x.fillRect(0, 0, w, h); // the map's own ground colour
   mapId = id; cols = FULL[0]; rows = FULL[1]; if (id !== 'random') buildWater();
-  const cw = w / cols, ch = h / rows; x.fillStyle = id === 'tokyo' ? '#3b4866' : P.water;
-  if (id === 'random'){ x.strokeStyle = P.water; x.lineWidth = 12; x.lineCap = 'round'; x.beginPath(); x.moveTo(w * 0.74, -6); x.quadraticCurveTo(w * 0.64, h * 0.45, w * 0.78, h + 6); x.stroke(); }
+  const cw = w / cols, ch = h / rows; x.fillStyle = id === 'tokyo' ? '#3b4866' : '#8fc1e6';
+  if (id === 'random'){ x.strokeStyle = '#8fc1e6'; x.lineWidth = 12; x.lineCap = 'round'; x.beginPath(); x.moveTo(w * 0.74, -6); x.quadraticCurveTo(w * 0.64, h * 0.45, w * 0.78, h + 6); x.stroke(); }
   else for (const i of water){ x.beginPath(); x.roundRect(col_(i) * cw - 0.6, row_(i) * ch - 0.6, cw + 1.2, ch + 1.2, 2); x.fill(); }
-  if (id !== 'random' && MAPS[id].hills){ buildTerrain(); x.fillStyle = P.rockSh; for (const i of mount){ x.beginPath(); x.roundRect(col_(i) * cw - 0.6, row_(i) * ch - 0.6, cw + 1.2, ch + 1.2, 2); x.fill(); }
-    x.fillStyle = P.tree; for (const [i] of trees){ x.beginPath(); x.arc(col_(i) * cw + cw / 2, row_(i) * ch + ch / 2, cw * 0.32, 0, 7); x.fill(); } }
+  if (id !== 'random' && MAPS[id].hills){ buildTerrain(); x.fillStyle = '#b3a17e'; for (const i of mount){ x.beginPath(); x.roundRect(col_(i) * cw - 0.6, row_(i) * ch - 0.6, cw + 1.2, ch + 1.2, 2); x.fill(); }
+    x.fillStyle = '#7fb069'; for (const [i] of trees){ x.beginPath(); x.arc(col_(i) * cw + cw / 2, row_(i) * ch + ch / 2, cw * 0.32, 0, 7); x.fill(); } }
   ({ mapId, water, cols, rows, mount, trees } = keep);
   const sq = (X, Y, cc, ww, hh) => { x.fillStyle = cc; x.beginPath(); x.roundRect(X, Y, ww || 9, hh || 9, 2.5); x.fill(); };
   const spots = { random: [[0.13, 0.26], [0.25, 0.66], [0.5, 0.18], [0.86, 0.45]], minsk: [[0.1, 0.62], [0.32, 0.75], [0.62, 0.22], [0.9, 0.4]], bobruisk: [[0.15, 0.3], [0.35, 0.82], [0.45, 0.2], [0.88, 0.5]], hills: [[0.12, 0.45], [0.45, 0.3], [0.48, 0.7], [0.8, 0.6]], lake: [[0.12, 0.3], [0.2, 0.75], [0.82, 0.25], [0.85, 0.75]], tokyo: [[0.12, 0.3], [0.3, 0.7], [0.38, 0.18], [0.75, 0.6]] }[id];
-  const pal = id === 'tokyo' ? ['#ec7aa6', '#8fd4ef', '#f4c56a', '#b49ce8'] : P.col;
+  const pal = id === 'tokyo' ? ['#ec7aa6', '#8fd4ef', '#f4c56a', '#b49ce8'] : ['#e2563f', '#3f7fe3', '#efb72b', '#3fae6e'];
   spots.forEach(([u, v], k) => sq(u * w, v * h, pal[k % 4]));
   const shop = { random: [0.36, 0.44], minsk: [0.18, 0.42], bobruisk: [0.38, 0.4], lake: [0.12, 0.5], hills: [0.44, 0.48], tokyo: [0.2, 0.45] }[id]; sq(shop[0] * w, shop[1] * h, pal[0], 26, 15); }
 function buildMenuMaps(){
@@ -1700,10 +1701,12 @@ function buildMenuMaps(){
       : `<span class="mlock">Откроется, когда наберёшь ${UNLOCK[id]} заказов за игру</span><span class="mdesc">Лучшее пока — ${top}</span><span class="mbar"><i style="width:${Math.min(100, top / UNLOCK[id] * 100).toFixed(0)}%"></i></span>`);
     if (open) b.onclick = () => { newGame(id); closeMenu(); };
     else b.disabled = true;
-    box.appendChild(b); drawMini(b.querySelector('canvas'), id); } }
+    box.appendChild(b); const shot = open && lsGet(shotKey(id));
+    if (shot){ const im = document.createElement('img'); im.className = 'mshot'; im.alt = ''; im.src = shot; b.querySelector('canvas').replaceWith(im); } // your last town on this map
+    else drawMini(b.querySelector('canvas'), id); } }
 function openMenu(){
   const playing = !over && time > 1; // a game that has actually been played can be continued
-  if (playing) saveNow();
+  if (playing){ saveNow(); keepShot(); }
   menuOpen = true; const saved = playing && hasSave(), best = bestScore();
   $('contBtn').hidden = !saved;
   if (saved) $('contBtn').textContent = `Продолжить · неделя ${week}, ${trips} ${plural(trips, 'заказ', 'заказа', 'заказов')}`;
@@ -1856,10 +1859,12 @@ const LOCK_SVG = '<svg viewBox="0 0 13 15" aria-hidden="true"><rect x="1.5" y="6
 const COLOR_NAMES = ['Красный', 'Синий', 'Жёлтый', 'Зелёный'];
 const topScore = () => Math.max(0, ...MAP_IDS.map(id => bestScore(id)));
 const isOpen = id => !UNLOCK[id] || bestScore(id) > 0 || topScore() >= UNLOCK[id];
+let shotW = 0; const shotKey = id => 'dorozhki-shot-' + id;
+function keepShot(){ if (quiet || time < 20) return; shotW = 420; const u = shotOfNetwork(); shotW = 0; if (u) lsSet(shotKey(mapId), u); } // the map card in the menu shows your last town on it
 function shotOfNetwork(){ // the whole open area, drawn without the player's zoom
   const keep = [uz, pan.x, pan.y]; uz = 1; pan.x = 0; pan.y = 0; placeCamera(false, 0); draw();
   const x0 = (offX + view.x * scale) * dpr, y0 = (offY + view.y * scale) * dpr, w = view.w * scale * dpr, h = view.h * scale * dpr;
-  const k = Math.min(1, 680 / w), c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+  const k = Math.min(1, (shotW || 680) / w), c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
   c.getContext('2d').drawImage(cv, x0, y0, w, h, 0, 0, c.width, c.height);
   [uz, pan.x, pan.y] = keep; placeCamera(false, 0);
   try { return c.toDataURL('image/jpeg', 0.85); } catch (e) { return ''; } }
@@ -1875,7 +1880,7 @@ function gameOver(cause){ const best = bestScore(), wasOpen = MAP_IDS.filter(isO
   const st = [[fmt(time), 'время'], [week, plural(week, 'неделя', 'недели', 'недель')], [houses, plural(houses, 'дом', 'дома', 'домов')], [roads.size, 'клеток дорог']];
   $('overStats').innerHTML = st.map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('');
   const u = $('overUnlock'); u.hidden = !opened.length; if (opened.length) u.textContent = (opened.length > 1 ? 'Открыты новые карты: ' : 'Открыта новая карта: ') + opened.map(id => '«' + MAPS[id].name + '»').join(', ');
-  const img = $('overShot'), src = quiet ? '' : shotOfNetwork(); img.hidden = !src; if (src) img.src = src;
+  const img = $('overShot'), src = quiet ? '' : shotOfNetwork(); img.hidden = !src; if (src) img.src = src; keepShot();
   clearSave(); }
 function newGame(id){ if (id) mapId = id; clearSave(); quiet = true; reset(); quiet = false; resize(); saveNow(); }
 setInterval(saveNow, 3000);
