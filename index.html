@@ -1263,6 +1263,7 @@ function drawHwDeck(h){
 }
 function stallBays(b){ // the painted lines between bays: for each bay two sides along the way the car stands
   const st = stallsOf(b), out = [], seen = new Set();
+  if (SHOP_TYPES[b.size].short){ for (const [, vs] of st) out.push([1.32, vs - 0.16, 1.62, vs + 0.2]); return out; } // a narrow strip: two short slashes, as in Mini Motorways
   for (const q of st){ const [us, vs, kind] = q, side = us < 1.5 ? -1 : 1;
     let h = kind === 'h' ? [side * 0.48, -0.3] : [side, 0]; const n = Math.hypot(h[0], h[1]); h = [h[0] / n, h[1] / n];
     const same = st.filter(o => (o[0] < 1.5) === (us < 1.5) && o[2] === kind).map(o => o[1]).sort((a, c) => a - c);
@@ -1286,8 +1287,9 @@ function drawShop(b, colr, dk, e){
   if (b.twin){ const all = pads.splice(0); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const B of all){ x0 = Math.min(x0, B[0]); y0 = Math.min(y0, B[1]); x1 = Math.max(x1, B[0] + B[2]); y1 = Math.max(y1, B[1] + B[3]); } pads.push([x0, y0, x1 - x0, y1 - y0]); } // one pad under both halves
   for (const [grow, col] of [[3, P.lotEdge], [0, P.road]]){ ctx.fillStyle = col; // the pad is road: the drive runs straight on into it, one colour
     for (const B of pads){ rr(B[0] - grow, B[1] - grow, B[2] + grow * 2, B[3] + grow * 2, 11 + grow); ctx.fill(); } }
-  ctx.strokeStyle = P.road; ctx.lineWidth = ROAD_W; ctx.lineCap = 'butt'; // the entrance: an opening in the frame, no bump
-  for (const [a, z] of tongues){ ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(z[0], z[1]); ctx.stroke(); }
+  ctx.lineCap = 'butt'; // the entrance, as in Mini Motorways: a framed neck of the lot running out to the road
+  for (const [w, col] of [[ROAD_W + 6, P.lotEdge], [ROAD_W, P.road]]){ ctx.strokeStyle = col; ctx.lineWidth = w; for (const [a, z] of tongues){ ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(z[0], z[1]); ctx.stroke(); } }
+  ctx.fillStyle = P.road; for (const B of pads){ rr(B[0], B[1], B[2], B[3], 11); ctx.fill(); } // the neck opens into the lot without a seam
   if (b.twin && !b.lvl){ const r = SHOP_TYPES.twinB.bld[0], B = boxOf(b.twin, r[0], r[1], r[2], r[3], 6); // the spare plot, waiting for the shop to grow
     ctx.strokeStyle = P.lotEdge; ctx.globalAlpha = 0.7; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); rr(B[0], B[1], B[2], B[3], 4); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
   ctx.strokeStyle = colr; ctx.globalAlpha = 0.75; ctx.lineWidth = 2; ctx.lineCap = 'round';
@@ -1426,8 +1428,7 @@ function draw(){
         ctx.save(); ctx.rotate(b.rot); ctx.fillStyle = dk; rr(s * 0.3, -s * 0.2, s * 0.32, s * 0.4, 3); ctx.fill(); ctx.restore(); }
       ctx.fillStyle = dk; rr(-s/2, -s/2 + 1, s, s, 6); ctx.fill();
       ctx.fillStyle = colr; rr(-s/2, -s/2 - hh + 1, s, s - 1, 6); ctx.fill();
-      const idle = b.cars.filter(c => c.phase === 'home').length;
-      ctx.fillStyle = P.win; for (let k = 0; k < idle; k++){ ctx.beginPath(); rr(-s * 0.3 + k * s * 0.34, -hh + s * 0.02, s * 0.26, s * 0.14, 2); ctx.fill(); } }
+    }
     ctx.restore();
     if (b.type === 'shop') drawShop(b, colr, dk, e); }
   // ground cars
