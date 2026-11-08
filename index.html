@@ -394,7 +394,7 @@ const SHOP_TYPES = {
   corner: { name: 'Угловой', depth: 2, lot: [0, 0, 2, 2], bld: [[0, 2, 3, 3], [2, 0, 3, 3]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
   m:      { name: 'Средний', depth: 1, lot: [0, 0, 3, 1], bld: [[0, 1, 2, 3]], stalls: [[2.36, 0.62], [0.64, 0.62]] }, // Mini Motorways' plain destination: a block with a strip of lot in front
   long:   { name: 'Длинный', depth: 3, lot: [1, 0, 3, 3], bld: [[0, 0, 1, 3]], stalls: [[2.3, 0.5, 'h'], [2.3, 0.97, 'h'], [2.3, 1.44, 'h'], [2.3, 1.91, 'h'], [2.3, 2.38, 'h']] },
-  mm:     { name: 'Обычный', depth: 2, lot: [1, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[1.78, 0.62, 'h'], [1.78, 1.5, 'h']], short: true }, // Mini Motorways: a 2×2 block with a one-cell strip of lot along its side
+  mm:     { name: 'Обычный', depth: 2, lot: [1, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[1.6, 1.42, 's'], [1.6, 0.72, 's']], short: true }, // Mini Motorways: a 2×2 block with a one-cell strip of lot along its side
   twin:   { name: 'Сдвоенный', depth: 2, lot: [0, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
   twinB:  { name: 'Сдвоенный', depth: 2, lot: [0, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
   l:      { name: 'Прямой', depth: 3, lot: [0, 0, 3, 3], bld: [[0, 3, 3, 4]], stalls: [[2.36, 0.8], [0.64, 0.8], [2.36, 1.3], [0.64, 1.3], [2.36, 1.8], [0.64, 1.8], [2.36, 2.3], [0.64, 2.3]] } };
@@ -988,10 +988,15 @@ const lotMoving = (b, phases) => cars.some(c => c.slotShop === b && phases.inclu
 function releaseStall(car){ if (car.slot >= 0 && car.slotShop){ if (car.slotShop.slots[car.slot] === car) car.slotShop.slots[car.slot] = null; } car.slot = -1; car.slotShop = null; }
 // The way into a stall and back out of it. A straight bay: turn in off the drive, back out deeper, leave forward.
 // An angled bay leans towards the entrance: drive a little past it, hook in, back out deeper the same way.
+// The narrow strip of a Mini Motorways lot: the bays lean towards the entrance. A car drives in past its bay, hooks nose-first into it,
+// later backs out deeper into the strip so that its nose faces the way out, and drives out through the neck.
+const STRIP_H = [0.47, -0.88]; // a car's heading in its bay, in the lot's (u, v)
 function parkPts(b, [us, vs, kind]){ const side = us < 1.5 ? -1 : 1;
+  if (kind === 's') return [lanePt(b, 1.5, Math.max(0.15, vs - 0.3), false), shopPt(b, 1.42, vs + 0.36), shopPt(b, us, vs)];
   if (kind === 'h') return [lanePt(b, 1.5, vs + 0.12, false), shopPt(b, 1.5 + side * 0.28, vs + 0.3), shopPt(b, us, vs)];
   return [lanePt(b, 1.5, Math.max(0.3, vs - 0.36), false), shopPt(b, 1.5 + side * 0.36, vs), shopPt(b, us, vs)]; }
 function backPts(b, [us, vs, kind]){ const side = us < 1.5 ? -1 : 1;
+  if (kind === 's') return [shopPt(b, us - 0.06, vs + 0.16), shopPt(b, 1.46, Math.min(b.depth - 0.12, vs + 0.42))];
   if (kind === 'h') return [shopPt(b, 1.5 + side * 0.3, vs + 0.34), lanePt(b, 1.5, Math.min(b.depth - 0.08, vs + 0.58), true)];
   return [shopPt(b, 1.5 + side * 0.36, vs + 0.03), lanePt(b, 1.5, Math.min(b.depth - 0.1, vs + 0.3), true)]; }
 function intoLot(car){ // drive up the middle and pull into the stall nose first
@@ -1270,7 +1275,7 @@ function drawHwDeck(h){
 }
 function stallBays(b){ // the painted lines between bays: for each bay two sides along the way the car stands
   const st = stallsOf(b), out = [], seen = new Set();
-  if (SHOP_TYPES[b.size].short){ for (const [, vs] of st) out.push([1.32, vs - 0.16, 1.62, vs + 0.2]); return out; } // a narrow strip: two short slashes, as in Mini Motorways
+  if (SHOP_TYPES[b.size].short){ for (const [us, vs] of st) for (const dv of [-0.3, 0.3]){ const cu = us, cv = vs + dv; out.push([cu - STRIP_H[0] * 0.2, cv - STRIP_H[1] * 0.2, cu + STRIP_H[0] * 0.2, cv + STRIP_H[1] * 0.2]); } return out.filter((q, k, a) => a.findIndex(z => Math.abs(z[1] - q[1]) < 0.1) === k); } // a narrow strip: short slashes along the bays, as in Mini Motorways
   for (const q of st){ const [us, vs, kind] = q, side = us < 1.5 ? -1 : 1;
     let h = kind === 'h' ? [side * 0.48, -0.3] : [side, 0]; const n = Math.hypot(h[0], h[1]); h = [h[0] / n, h[1] / n];
     const same = st.filter(o => (o[0] < 1.5) === (us < 1.5) && o[2] === kind).map(o => o[1]).sort((a, c) => a - c);
@@ -1432,7 +1437,12 @@ function draw(){
       ctx.fillStyle = P.shadow; rr(-s/2 + 4, -s/2 + 3, s, s + 2, 6); ctx.fill();
       { const want = Math.atan2(DIRS[b.door][1], DIRS[b.door][0]); if (b.rot === undefined) b.rot = want;
         let dd = want - b.rot; while (dd > Math.PI) dd -= Math.PI * 2; while (dd < -Math.PI) dd += Math.PI * 2; b.rot += dd * 0.25; // the entrance swings round smoothly to a new side
-        ctx.save(); ctx.rotate(b.rot); ctx.fillStyle = dk; rr(s * 0.3, -s * 0.2, s * 0.32, s * 0.4, 3); ctx.fill(); ctx.restore(); }
+      }
+      { const idle = b.cars.filter(c => c.phase === 'home').length; // the cars at home: their backs stick out of the house on the driveway side, as in Mini Motorways
+        ctx.save(); ctx.rotate(b.rot); for (let k = 0; k < idle; k++){ const off = idle === 1 ? 0 : (k ? 1 : -1) * s * 0.2;
+          ctx.fillStyle = P.shadow; rr(s / 2 - CAR_L * 0.55 + 1.5, off - CAR_W / 2 + 1.5, CAR_L, CAR_W, 3.5); ctx.fill();
+          ctx.fillStyle = colr; ctx.strokeStyle = dk; ctx.lineWidth = 1.2; rr(s / 2 - CAR_L * 0.55, off - CAR_W / 2, CAR_L, CAR_W, 3.5); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = dk; ctx.fillRect(s / 2 + CAR_L * 0.3, off - CAR_W / 2 + 1.2, 1.4, CAR_W - 2.4); } ctx.restore(); }
       ctx.fillStyle = dk; rr(-s/2, -s/2 + 1, s, s, 6); ctx.fill();
       ctx.fillStyle = colr; rr(-s/2, -s/2 - hh + 1, s, s - 1, 6); ctx.fill();
     }
