@@ -378,7 +378,7 @@ for (const k in SHOP_TYPES){ const T0 = SHOP_TYPES[k]; T0.lotCells = cellsOf(...
 const LEGACY_SHOP = { s: 'kiosk' }; // saves from before the shapes
 const stallsOf = b => SHOP_TYPES[b.size].stalls;
 // How many orders a shop holds before its timer starts, and how often it orders: small ones 6, big ones up to 10; a grown shop holds 2 more and orders a quarter faster.
-const SHOP_CAP = { kiosk: 6, square: 6, corner: 6, m: 6, long: 8, l: 10, twin: 5, twinB: 5 }, SHOP_RATE = { kiosk: 1.15, square: 1.1, corner: 1.1, m: 1, long: 1, l: 0.85, twin: 0.85, twinB: 0.85 };
+const SHOP_CAP = { kiosk: 6, square: 6, corner: 6, m: 6, long: 8, l: 10, twin: 5, twinB: 5 }, SHOP_RATE = { kiosk: 1.25, square: 1.1, corner: 1.1, m: 1.25, long: 1, l: 0.85, twin: 0.85, twinB: 0.85 };
 const capOf = b => (SHOP_CAP[b.size] || 8) + (b.lvl ? 2 : 0), rateOf = b => (SHOP_RATE[b.size] || 1) * (b.lvl ? 0.75 : 1);
 function pickShopSize(){ const r = Math.random(), pick = w => { let t = 0; for (const [k, p] of w){ t += p; if (r < t) return k; } return w[w.length - 1][0]; }; // small ones first, bigger ones later in the game
   // small footprints, as in Mini Motorways: a block with a little lot; the big lots ('long', 'l') are kept only for old saves
@@ -901,7 +901,7 @@ function stepCar(car, dt){
     let hit = null;
     while (tries < 4){ const q = at(step), chk = () => wouldHit(car, q[0], q[1], shown(q[2]), q[2], car.passCar) || wouldHit(car, q[0], q[1], q[2], undefined, car.passCar);
       hit = chk();
-      if (hit && ((hit.holdBy === car.id && car.holdBy === hit.id && car.holdT > 1.5 && hit.holdT > 1.5 && first(hit)) || (car.stuck > 18 && car.holdBy === hit.id && (hit.stuck || 0) > 1)) && !blocked && (car.gap === undefined || car.gap > CAR_L * 2 + MIN_GAP) && (() => { const z = at(CAR_L * 1.4); return !wouldHit(car, z[0], z[1], z[2], undefined, hit); })()){ car.passCar = hit; car.passT = 0; hit = chk(); } // only with room to get clear
+      if (hit && hit.holdBy === car.id && car.holdBy === hit.id && car.holdT > 1.5 && hit.holdT > 1.5 && first(hit) && !blocked && (car.gap === undefined || car.gap > CAR_L * 2 + MIN_GAP) && (() => { const z = at(CAR_L * 1.4); return !wouldHit(car, z[0], z[1], z[2], undefined, hit); })()){ car.passCar = hit; car.passT = 0; hit = chk(); } // only with room to get clear
       if (!hit) break; step *= 0.4; tries++; }
     if (tries === 4){ step = 0; car.v = 0; }
     const by = tries === 4 && hit ? hit.id : -1; car.holdT = by >= 0 && by === car.holdBy ? (car.holdT || 0) + dt : 0; car.holdBy = by; }
