@@ -166,7 +166,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
   <div class="dock">
     <button id="tDraw" class="on" type="button">Дорога <span class="n" id="nRoad">0</span></button>
     <button id="tErase" type="button" title="Стирает дороги; нажатие на шоссе снимает его">Стереть</button>
-    <button id="tBend" type="button" title="Потяни дорогу в сторону — она плавно выгнется">Изгиб</button>
+    <button id="tBend" type="button" hidden>Изгиб</button>
     <button id="tRing" type="button">Кольцо <span class="n" id="nRing">0</span></button>
     <button id="tHw" type="button">Шоссе <span class="n" id="nHw">0</span></button>
     <button id="tLight" type="button">Светофор <span class="n" id="nLight">0</span></button>
@@ -1769,7 +1769,7 @@ cv.addEventListener('pointerdown', ev => {
   if (ev.button === 0 && (mode === 'draw' || mode === 'hw') && hwStart < 0){ const m = hwEndAt(ev); if (m){ const r = cv.getBoundingClientRect(); moveHw = { ...m, to: -1, x: cx(m.h[m.e]), y: cy(m.h[m.e]) }; cv.setPointerCapture(ev.pointerId); return; } }
   if (ev.button === 0 && (mode === 'draw' || mode === 'hw') && hwStart < 0){ const g = hwHandleAt(ev); if (g){ bendHw = { ...g, m0: g.h.m || null, bad: '' }; cv.setPointerCapture(ev.pointerId); return; } }
   const i = toCell(ev);
-  if (ev.button !== 2 && mode === 'bend'){ if (startBend(ev)) cv.setPointerCapture(ev.pointerId); return; }
+  if (false && ev.button !== 2 && mode === 'bend'){ if (startBend(ev)) cv.setPointerCapture(ev.pointerId); return; }
   if (ev.button !== 2 && mode === 'ring'){ if (i >= 0) tapRing(i); return; }
   if (ev.button !== 2 && mode === 'hw'){ if (i >= 0) tapHw(i); return; }
   if (ev.button !== 2 && mode === 'light'){ if (i >= 0) tapLight(i); return; }
@@ -1979,7 +1979,7 @@ function deserialize(d){
       doors.add(sb.doorCell); for (const x of sb.cells) occ.set(x, sb); bld.set(sb.i, sb); } }
   for (const b of bld.values()) if (b.twinI !== undefined && b.size === 'twin' && bld.get(b.twinI)) twinUp(b, bld.get(b.twinI));
   for (const [a, b] of d.edges) addEdge(a, b);
-  roadOff = new Map(d.off || []);
+  roadOff = new Map(); // the bend tool is gone: old saves load with straight roads
   bridgeOf = new Map(d.bridges); bridgeSeq = d.bridgeSeq || 0; rings = new Set(d.rings); zoneRings();
   lights = new Map(d.lights.map(([i, g]) => [i, { g, t: 0, clear: 0, want: [false, false] }]));
   for (const [a, b, m] of d.hws){ const h = { a, b, m: m || null }; shapeHw(h); hws.push(h); hwOf.set(a, { h, partner: b }); hwOf.set(b, { h, partner: a }); }
