@@ -10,16 +10,16 @@ const R=[]; const ok=(name,cond,info)=>{ R.push((cond?'OK  ':'FAIL')+' '+name+(i
  const ev=c=>p.evaluate(c=>__ev(c),c);
  ok('menu open on first visit', await p.isVisible('#menu'));
  ok('no Continue on first visit', !(await p.isVisible('#contBtn')));
- ok('5 map cards', (await p.locator('#maps button').count())===5, await p.locator('#maps button').count());
+ ok('6 map cards', (await p.locator('#maps button').count())===6, await p.locator('#maps button').count());
  ok('2 maps locked at first', (await p.locator('#maps button.locked').count())===2 && (await p.locator('#maps button:disabled').count())===2);
  // a record of 350 opens the rest
  await p.evaluate(()=>localStorage.setItem('dorozhki-best-minsk','350')); await ev('(buildMenuMaps(),0)');
  ok('all maps open at 350', (await p.locator('#maps button.locked').count())===0);
  // pick each map
- for (let k=0;k<5;k++){ await p.locator('#maps button').nth(k).click(); await p.waitForTimeout(250);
+ for (let k=0;k<6;k++){ await p.locator('#maps button').nth(k).click(); await p.waitForTimeout(250);
    const st=JSON.parse(await ev(`JSON.stringify({menu:menuOpen,map:mapId,shops:[...bld.values()].filter(b=>b.type==='shop').length,houses:[...bld.values()].filter(b=>b.type==='house').length,tut:!!tut,water:water.size})`));
    ok('start map '+st.map, !st.menu && st.shops===1 && st.houses>=2, st);
-   if(k<4){ await p.click('#menuBtn'); await p.waitForTimeout(150); } }
+   if(k<5){ await p.click('#menuBtn'); await p.waitForTimeout(150); } }
  // tutorial shown on fresh start
  ok('tutorial tip visible', await p.isVisible('#tip'));
  await p.click('#tipSkip'); ok('tutorial skipped', !(await p.isVisible('#tip')));
