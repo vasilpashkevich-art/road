@@ -371,17 +371,19 @@ const SHOP_TYPES = {
   corner: { name: 'Угловой', depth: 2, lot: [0, 0, 2, 2], bld: [[0, 2, 3, 3], [2, 0, 3, 3]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
   m:      { name: 'Средний', depth: 2, lot: [0, 0, 3, 2], bld: [[0, 2, 3, 3]], stalls: [[2.36, 0.85], [0.64, 0.85], [2.36, 1.55], [0.64, 1.55]] },
   long:   { name: 'Длинный', depth: 3, lot: [1, 0, 3, 3], bld: [[0, 0, 1, 3]], stalls: [[2.3, 0.5, 'h'], [2.3, 0.97, 'h'], [2.3, 1.44, 'h'], [2.3, 1.91, 'h'], [2.3, 2.38, 'h']] },
+  twin:   { name: 'Сдвоенный', depth: 2, lot: [0, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
+  twinB:  { name: 'Сдвоенный', depth: 2, lot: [0, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
   l:      { name: 'Прямой', depth: 3, lot: [0, 0, 3, 3], bld: [[0, 3, 3, 4]], stalls: [[2.36, 0.8], [0.64, 0.8], [2.36, 1.3], [0.64, 1.3], [2.36, 1.8], [0.64, 1.8], [2.36, 2.3], [0.64, 2.3]] } };
 for (const k in SHOP_TYPES){ const T0 = SHOP_TYPES[k]; T0.lotCells = cellsOf(...T0.lot); T0.bldCells = []; for (const r of T0.bld) for (const c of cellsOf(...r)) if (!T0.bldCells.some(q => q[0] === c[0] && q[1] === c[1])) T0.bldCells.push(c); }
 const LEGACY_SHOP = { s: 'kiosk' }; // saves from before the shapes
 const stallsOf = b => SHOP_TYPES[b.size].stalls;
 // How many orders a shop holds before its timer starts, and how often it orders: small ones 6, big ones up to 10; a grown shop holds 2 more and orders a quarter faster.
-const SHOP_CAP = { kiosk: 6, square: 6, corner: 6, m: 8, long: 8, l: 10 }, SHOP_RATE = { kiosk: 1.15, square: 1.1, corner: 1.1, m: 1, long: 1, l: 0.85 };
+const SHOP_CAP = { kiosk: 6, square: 6, corner: 6, m: 8, long: 8, l: 10, twin: 5, twinB: 5 }, SHOP_RATE = { kiosk: 1.15, square: 1.1, corner: 1.1, m: 1, long: 1, l: 0.85, twin: 0.85, twinB: 0.85 };
 const capOf = b => (SHOP_CAP[b.size] || 8) + (b.lvl ? 2 : 0), rateOf = b => (SHOP_RATE[b.size] || 1) * (b.lvl ? 0.75 : 1);
 function pickShopSize(){ const r = Math.random(), pick = w => { let t = 0; for (const [k, p] of w){ t += p; if (r < t) return k; } return w[w.length - 1][0]; }; // small ones first, bigger ones later in the game
   if (time < 240) return pick([['kiosk', 0.45], ['square', 0.3], ['corner', 0.25]]);
-  if (time < 600) return pick([['kiosk', 0.2], ['square', 0.22], ['corner', 0.22], ['m', 0.16], ['long', 0.2]]);
-  return pick([['kiosk', 0.1], ['square', 0.15], ['corner', 0.17], ['m', 0.16], ['long', 0.2], ['l', 0.22]]); }
+  if (time < 600) return pick([['kiosk', 0.18], ['square', 0.2], ['corner', 0.2], ['m', 0.14], ['long', 0.16], ['twin', 0.12]]);
+  return pick([['kiosk', 0.08], ['square', 0.13], ['corner', 0.15], ['m', 0.14], ['long', 0.16], ['l', 0.18], ['twin', 0.16]]); }
 function lanePt(b, u, v, out){ // a point on the in- or out-lane of the middle drive
   const F = DIRS[b.door], h = out ? F : [-F[0], -F[1]], p = shopPt(b, u, v); return [p[0] - h[1] * LANE, p[1] + h[0] * LANE]; }
 function shopPt(b, u, v){ const F = DIRS[b.door], R = DIRS[b.lat]; return [cx(b.i) + ((u - 1.5) * R[0] + (0.5 - v) * F[0]) * CELL, cy(b.i) + ((u - 1.5) * R[1] + (0.5 - v) * F[1]) * CELL]; }
@@ -410,16 +412,24 @@ function placeShop(seed, color, size){
     for (const [cu, cv] of all){ // the seed may be any cell of the footprint
       const gc = col_(seed) - R[0] * (cu - 1) + F[0] * cv, gr = row_(seed) - R[1] * (cu - 1) + F[1] * cv; if (!inb(gc, gr)) continue;
       const G = idx(gc, gr), fit = shopFit(G, f, lat, size); if (!fit) continue;
-      opts.push({ G, f, lat, fit, score: F[0] * (cols / 2 - gc) + F[1] * (rows / 2 - gr) + Math.random() * 4 }); } }
+      let tw = null; if (size === 'twin'){ const tc = gc - F[0] * 3, tr = gr - F[1] * 3; if (!inb(tc, tr)) continue; const tf = shopFit(idx(tc, tr), (f + 2) & 3, lat, 'twinB'); if (!tf) continue;
+        if (tf.cells.some(x => fit.cells.includes(x)) || fit.cells.includes(tf.door) || tf.cells.includes(fit.door)) continue; tw = { G: idx(tc, tr), f: (f + 2) & 3, fit: tf }; }
+      opts.push({ G, f, lat, fit, tw, score: F[0] * (cols / 2 - gc) + F[1] * (rows / 2 - gr) + Math.random() * 4 }); } }
   if (!opts.length) return false;
   opts.sort((a, b) => b.score - a.score); const o = opts[0];
   const b = makeShop(o.G, o.f, o.lat, size, o.fit, color);
   doors.add(b.doorCell); for (const x of b.cells){ occ.set(x, b); trees.delete(x); } trees.delete(b.doorCell);
   bld.set(b.i, b); autoDoor(b.doorCell);
+  if (o.tw){ const t = makeShop(o.tw.G, o.tw.f, o.lat, 'twinB', o.tw.fit, color); t.pinT = 1e9; twinUp(b, t);
+    doors.add(t.doorCell); for (const x of t.cells){ occ.set(x, t); trees.delete(x); } trees.delete(t.doorCell); bld.set(t.i, t); autoDoor(t.doorCell); }
   for (const h of hws) shapeHw(h);
   return true;
 }
-function unplaceShop(b){ for (const x of b.cells) occ.delete(x); doors.delete(b.doorCell); if (hasEdge(b.i, b.doorCell)) delEdge(b.i, b.doorCell); bld.delete(b.i); for (const h of hws) shapeHw(h); }
+// A twin shop is two halves with one building: one lot with an entrance at each end. The head orders for both, the tail takes half the cars.
+function twinUp(a, t){ a.twin = t; t.twin = a; t.head = a; t.t = a.t; }
+const isTail = b => b.size === 'twinB';
+const shopHead = b => isTail(b) ? b.head : b;
+function unplaceShop(b){ if (b.twin && bld.has(b.twin.i) && !b.unplacing){ b.unplacing = true; unplaceShop(b.twin); } for (const x of b.cells) occ.delete(x); doors.delete(b.doorCell); if (hasEdge(b.i, b.doorCell)) delEdge(b.i, b.doorCell); bld.delete(b.i); for (const h of hws) shapeHw(h); }
 function place(i, type, color, want){
   if (type === 'shop') return placeShop(i, color, quiet ? 'kiosk' : undefined);
   const okW = want !== undefined && nb(i).some(([d, j]) => d === want && !water.has(j) && !mount.has(j) && !ringZone.has(j) && !occ.has(j) && !doors.has(j) && inPlay(j));
@@ -1001,11 +1011,12 @@ function tick(dt){
   if (tutHold()){ for (const b of bld.values()) b.t += dt; buildGroups(); dispatch(dt); for (const car of cars) stepCar(car, dt); return; } // the clock waits for the first road
   time += dt;
   for (const b of bld.values()){ b.t += dt;
+    if (b.type === 'shop' && isTail(b)){ b.t = b.head.t; b.lvl = b.head.lvl; b.growT = b.head.growT; continue; }
     if (b.type === 'shop'){ b.pinT -= dt;
       if (!b.lvl && b.t > T.grow){ b.lvl = 1; b.growT = 0; if (!quiet) sfx('shop'); } // a shop that has stood a while grows: holds more and orders more often
       if (b.growT !== undefined) b.growT += dt;
-      if (b.pinT <= 0){ b.pins = Math.min(capOf(b), b.pins + 1); b.pinT = (T.pinBase + Math.random() * T.pinRand) * Math.max(T.rampFloor, 1 - time / T.ramp) * rateOf(b); }
-      if (b.pins >= capOf(b)){ if (Math.floor(b.overT / 3.5) !== Math.floor((b.overT + dt) / 3.5) || b.overT === 0) sfx('alarm'); b.overT += dt; if (b.overT >= T.overflow){ over = true; gameOver(b); $('over').hidden = false; } }
+      if (b.pinT <= 0){ const to = b.twin && b.twin.pins < b.pins ? b.twin : b; to.pins = Math.min(capOf(to), to.pins + 1); b.pinT = (T.pinBase + Math.random() * T.pinRand) * Math.max(T.rampFloor, 1 - time / T.ramp) * rateOf(b); }
+      if (b.pins + (b.twin ? b.twin.pins : 0) >= capOf(b) + (b.twin ? capOf(b.twin) : 0)){ if (Math.floor(b.overT / 3.5) !== Math.floor((b.overT + dt) / 3.5) || b.overT === 0) sfx('alarm'); b.overT += dt; if (b.overT >= T.overflow){ over = true; gameOver(b); $('over').hidden = false; } }
       else b.overT = Math.max(0, b.overT - dt * 2);
     } }
   spawnHouseT -= dt; spawnShopT -= dt;
@@ -1185,18 +1196,23 @@ function stallBays(b){ // the painted lines between bays: for each bay two sides
 function boxOf(b, u0, v0, u1, v1, pad){ const a = shopPt(b, u0, v0), c = shopPt(b, u1, v1);
   return [Math.min(a[0], c[0]) + pad, Math.min(a[1], c[1]) + pad, Math.abs(c[0] - a[0]) - pad * 2, Math.abs(c[1] - a[1]) - pad * 2]; }
 function drawShop(b, colr, dk, e){
+  if (isTail(b)) return;
   const T0 = SHOP_TYPES[b.size], [lu0, lv0, lu1, lv1] = T0.lot;
   ctx.save(); const C = shopCenter(b); ctx.translate(C[0], C[1]); ctx.scale(e, e); ctx.translate(-C[0], -C[1]);
   // parking lot: white pad, bay lines off the drive
   const D = b.depth, L = joinedBox(b, T0.lot, T0.bld, 0.12); // runs on under the building's wall
   { const H = shopH(b); ctx.fillStyle = P.shadow; for (const r of T0.bld){ const B = joinedBox(b, r, [T0.lot], 0); rr(B[0] + H * 0.7, B[1] + H * 0.5, B[2], B[3], 8); ctx.fill(); } } // the building's shadow falls on the ground, under the lot
   // as in Mini Motorways: the lot and the building sit on one pad with a light frame, and a short tongue of the pad runs out to the road
-  const pads = [T0.lot, ...T0.bld].map(r => boxOf(b, r[0], r[1], r[2], r[3], 1)), tg = boxOf(b, 1.5 - 0.3, -0.5, 1.5 + 0.3, 0.2, 0);
+  const parts = b.twin ? [b, b.twin] : [b], pads = [], tongues = [];
+  for (const s0 of parts){ const T1 = SHOP_TYPES[s0.size]; for (const r of [T1.lot, ...T1.bld]) pads.push(boxOf(s0, r[0], r[1], r[2], r[3], 1)); tongues.push(boxOf(s0, 1.5 - 0.3, -0.5, 1.5 + 0.3, 0.2, 0)); }
+  if (b.twin){ const all = pads.splice(0); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const B of all){ x0 = Math.min(x0, B[0]); y0 = Math.min(y0, B[1]); x1 = Math.max(x1, B[0] + B[2]); y1 = Math.max(y1, B[1] + B[3]); } pads.push([x0, y0, x1 - x0, y1 - y0]); } // one pad under both halves
   for (const [grow, col] of [[3, P.lotEdge], [0, P.lot]]){ ctx.fillStyle = col;
     for (const B of pads){ rr(B[0] - grow, B[1] - grow, B[2] + grow * 2, B[3] + grow * 2, 11 + grow); ctx.fill(); }
-    rr(tg[0] - grow, tg[1] - grow, tg[2] + grow * 2, tg[3] + grow * 2, Math.min(tg[2], tg[3]) / 2 + grow); ctx.fill(); }
+    for (const tg of tongues){ rr(tg[0] - grow, tg[1] - grow, tg[2] + grow * 2, tg[3] + grow * 2, Math.min(tg[2], tg[3]) / 2 + grow); ctx.fill(); } }
+  if (b.twin && !b.lvl){ const r = SHOP_TYPES.twinB.bld[0], B = boxOf(b.twin, r[0], r[1], r[2], r[3], 6); // the spare plot, waiting for the shop to grow
+    ctx.strokeStyle = P.lotEdge; ctx.globalAlpha = 0.7; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); rr(B[0], B[1], B[2], B[3], 4); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
   ctx.strokeStyle = colr; ctx.globalAlpha = 0.75; ctx.lineWidth = 2; ctx.lineCap = 'round';
-  for (const [u0, v0, u1, v1] of stallBays(b)){ const a = shopPt(b, u0, v0), c = shopPt(b, u1, v1); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(c[0], c[1]); ctx.stroke(); }
+  for (const s0 of parts) for (const [u0, v0, u1, v1] of stallBays(s0)){ const a = shopPt(s0, u0, v0), c = shopPt(s0, u1, v1); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(c[0], c[1]); ctx.stroke(); }
   ctx.globalAlpha = 1; ctx.restore();
 }
 // The shop building: about twice as tall as a house. The roof is lifted by SHOP_H, the front wall shows below it,
@@ -1216,6 +1232,7 @@ function shopCenter(b){ const T0 = SHOP_TYPES[b.size]; let u0 = 9, v0 = 9, u1 = 
   return shopPt(b, (u0 + u1) / 2, (v0 + v1) / 2); }
 function roofMid(b){ const r = SHOP_TYPES[b.size].bld[0]; return shopPt(b, (r[0] + r[2]) / 2, (r[1] + r[3]) / 2); } // the main wing carries the sign and the orders
 function drawShopBody(b){
+  if (isTail(b) && !b.lvl) return; // the spare plot is built on when the shop grows
   const colr = P.col[b.color], dk = P.dark[b.color], pop = Math.min(1, b.t / 0.35), e = 1 - Math.pow(1 - pop, 3);
   ctx.save(); const C = shopCenter(b); ctx.translate(C[0], C[1]); ctx.scale(e, e); ctx.translate(-C[0], -C[1]);
   const Bs = SHOP_TYPES[b.size].bld.map(r => joinedBox(b, r, [SHOP_TYPES[b.size].lot], 0)), H = shopH(b);
@@ -1225,7 +1242,7 @@ function drawShopBody(b){
   ctx.fillStyle = mid; for (const B of Bs){ rr(B[0] + 1.5, B[1] - H * 0.75 + 1.5, B[2] - 2, B[3] - 2, 9); ctx.fill(); }
   ctx.fillStyle = colr; for (const B of Bs){ rr(B[0], B[1] - H, B[2] - 3, B[3] - 3, 8); ctx.fill(); }
   if (Bs.length > 1) for (const B of Bs) ctx.fillRect(B[0] + 8, B[1] - H + 8, B[2] - 19, B[3] - 19); // an L-shaped roof is one roof: no seam where the wings meet
-  if (b.lvl){ // grown: the top turns into a round tower, as a Mini Motorways destination does when it upgrades
+  if (b.lvl && !isTail(b)){ // grown: the top turns into a round tower, as a Mini Motorways destination does when it upgrades
     const g01 = Math.min(1, (b.growT || 9) / 0.6), r0 = SHOP_TYPES[b.size].bld[0], B = boxOf(b, r0[0], r0[1], r0[2], r0[3], 0), R = Math.min(B[2], B[3]) * 0.4 * (0.6 + 0.4 * g01), x = B[0] + (B[2] - 3) / 2, y = B[1] - H + (B[3] - 3) / 2, up = 6 * g01;
     ctx.fillStyle = dk; ctx.beginPath(); ctx.arc(x + 1.5, y + 1.5, R, 0, 7); ctx.fill(); ctx.fillRect(x - R + 1.5, y - up + 1.5, R * 2, up);
     ctx.beginPath(); ctx.arc(x + 1.5, y - up + 1.5, R, 0, 7); ctx.fill();
@@ -1252,7 +1269,7 @@ function drawChip(x, y, r, color, dim){ // an order: a dark map marker with a wh
   ctx.globalAlpha = 1; }
 let flies = [];
 function launchChip(s){ // the delivered order leaves the shop and flies up to the counter
-  const [x0, y0] = roofChip(s, s.pins, s.pins + 1);
+  s = shopHead(s); const [x0, y0] = roofChip(s, s.pins, s.pins + 1);
   const sc = $('score').getBoundingClientRect(), cr = cv.getBoundingClientRect();
   const x1 = (sc.left + 14 - cr.left - offX) / scale, y1 = (sc.top + sc.height / 2 - cr.top - offY) / scale;
   flies.push({ x0, y0, x1, y1, cx: (x0 + x1) / 2 + (x0 < x1 ? -40 : 40), cy: Math.min(y0, y1) - 60, t: 0, dur: 0.75, color: s.color }); }
@@ -1353,9 +1370,9 @@ function draw(){
   tutGuide();
   // pins
   // orders sit on the roof of the shop, in a line along the building
-  for (const b of bld.values()){ if (b.type !== 'shop' || b.pins === 0) continue;
-    for (let k = 0; k < b.pins; k++){ const [px, py] = roofChip(b, k, b.pins); drawChip(px, py, CHIP_R, b.color, k >= b.pins - b.reserved); }
-    if (b.pins >= capOf(b)){ const a = roofChip(b, 0, b.pins), z = roofChip(b, b.pins - 1, b.pins), mx = (a[0] + z[0]) / 2, my = (a[1] + z[1]) / 2; // overflow timer round the chips
+  for (const b of bld.values()){ if (b.type !== 'shop' || isTail(b)) continue; const tw = b.twin, n = b.pins + (tw ? tw.pins : 0), res = b.reserved + (tw ? tw.reserved : 0); if (!n) continue;
+    for (let k = 0; k < n; k++){ const [px, py] = roofChip(b, k, n); drawChip(px, py, CHIP_R, b.color, k >= n - res); }
+    if (n >= capOf(b) + (tw ? capOf(tw) : 0)){ const a = roofChip(b, 0, n), z = roofChip(b, n - 1, n), mx = (a[0] + z[0]) / 2, my = (a[1] + z[1]) / 2; // overflow timer round the chips
       const rad = Math.hypot(z[0] - a[0], z[1] - a[1]) / 2 + CHIP_R + 5;
       ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(mx, my, rad, 0, 7); ctx.stroke();
       ctx.strokeStyle = P.warn; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(mx, my, rad, -Math.PI/2, -Math.PI/2 + (b.overT / T.overflow) * Math.PI * 2); ctx.stroke(); } }
@@ -1748,7 +1765,7 @@ const SAVE_KEY = 'dorozhki-save-v1', bestKey = id => 'dorozhki-best-' + id;
 function serialize(){
   const edges = []; for (const [a, set] of E) for (const b of set) if (a < b && !dying.has(ekey(a, b))) edges.push([a, b]);
   const blds = [...bld.values()].map(b => b.type === 'house' ? { k: 'h', i: b.i, c: b.color, d: b.door }
-    : { k: 's', i: b.i, c: b.color, d: b.door, l: b.lat, z: b.size, g: b.lvl || 0, p: b.pins, o: Math.round(b.overT * 10) / 10, pt: Math.round(b.pinT * 10) / 10, t: Math.round(b.t) });
+    : { k: 's', i: b.i, c: b.color, d: b.door, l: b.lat, z: b.size, g: b.lvl || 0, p: b.pins, o: Math.round(b.overT * 10) / 10, pt: Math.round(b.pinT * 10) / 10, t: Math.round(b.t), tw: b.twin ? b.twin.i : undefined });
   return { v: 1, map: mapId, area, cols, rows, water: [...water], mount: [...mount], trees: [...trees], tunnels: [...tunnelOf], tunnelSeq, river: riverChain, edges, bridges: [...bridgeOf], bridgeSeq, rings: [...rings], lights: [...lights].map(([i, L]) => [i, L.g]),
     hws: hws.map(h => h.m ? [h.a, h.b, h.m] : [h.a, h.b]), blds, s: { time, trips, week, weekT, budget, bridgesN, tunnelsN, ringN, hwN, lightN, colorsInPlay, spawnHouseT, spawnShopT }, offers: choosing ? offerKeys : null };
 }
@@ -1765,7 +1782,9 @@ function deserialize(d){
       h.cars = [mkCar(h), mkCar(h)]; cars.push(...h.cars); doors.add(h.doorCell); occ.set(h.i, h); bld.set(h.i, h); }
     else { const z = SHOP_TYPES[b.z] ? b.z : (LEGACY_SHOP[b.z] || 'kiosk'), lat = b.l ?? ((b.d + 1) & 3), fit = shopCells(b.i, b.d, lat, z);
       const sb = Object.assign(makeShop(b.i, b.d, lat, z, fit, b.c), { pins: b.p, overT: b.o, t: b.t, pinT: b.pt, lvl: b.g || 0 });
+      if (b.tw !== undefined) sb.twinI = b.tw;
       doors.add(sb.doorCell); for (const x of sb.cells) occ.set(x, sb); bld.set(sb.i, sb); } }
+  for (const b of bld.values()) if (b.twinI !== undefined && b.size === 'twin' && bld.get(b.twinI)) twinUp(b, bld.get(b.twinI));
   for (const [a, b] of d.edges) addEdge(a, b);
   bridgeOf = new Map(d.bridges); bridgeSeq = d.bridgeSeq || 0; rings = new Set(d.rings); zoneRings();
   lights = new Map(d.lights.map(([i, g]) => [i, { g, t: 0, clear: 0, want: [false, false] }]));
