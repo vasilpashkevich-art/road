@@ -1,0 +1,14 @@
+const {chromium}=require('playwright'); const fs=require('fs');
+(async()=>{const b=await chromium.launch();const p=await (await b.newContext({viewport:{width:1000,height:760},deviceScaleFactor:2})).newPage();
+p.on('pageerror',e=>console.log('PE',e.message));
+await p.goto('file://'+__dirname+'/hw.html');await p.evaluate(()=>{localStorage.clear();localStorage.setItem('dorozhki-tut','done')}); await p.reload(); await p.waitForTimeout(300);
+const src=fs.readFileSync(__dirname+'/lotscene.js','utf8'); const setup=src.slice(src.indexOf("const setup=await p.evaluate(()=>__ev(`")+"const setup=await p.evaluate(()=>__ev(`".length, src.indexOf("`));\nconsole.log(setup);"));
+console.log(await p.evaluate(c=>__ev(c),setup));
+const r=await p.evaluate(()=>__ev(`(()=>{ for(let i=0;i<14000;i++){ if(choosing){ choosing=false; $('weekBox').hidden=true; } if(cars.some(c=>(c.stuck||0)>18)) break; for(const s of bld.values()) if(s.type==='shop') s.pins=Math.max(s.pins,5); tick(1/40);} 
+  const sh=[...bld.values()].find(b=>b.type==='shop'&&b.size==='square');
+  const c13=cars.find(c=>c.phase==='go'&&c.back&&c.fromShop===sh); let dbg=null; if(c13){ const g=jGroup.get(250); const S=locks.get(g); dbg={g, cap:jCap.get(g), members:S?[...S].map(o=>o.id+':'+o.lock+':'+o.phase):[], exitB:exitBlocked(c13,g), why:(()=>{ const out=[]; for (let k=c13.si+1;k<c13.segs.length;k++){ const sg=c13.segs[k]; if(sg.cell>=0&&jGroup.get(sg.cell)===g) continue; const [px,py]=samp(sg,0); const ea=sg_ang(sg); for(const o of cars){ if(o===c13||o.phase!=='go'||o.lock===g) continue; const dd=Math.hypot(o.x-px,o.y-py); if(dd<60) out.push({id:o.id,cos:Math.cos(o.ang-ea).toFixed(2),dd:dd.toFixed(1),v:o.v.toFixed(1),up:((px-o.x)*Math.cos(ea)+(py-o.y)*Math.sin(ea)).toFixed(1)}); } out.push({seg:sg.cell,ea:(ea*57.3).toFixed(0)}); break; } return out; })(), light:lightStops(250,c13), path:c13.path.slice(0,6), stuck:c13.stuck}; }
+  return JSON.stringify({dbg, door:sh.doorCell, gate:sh.i, slots:sh.slots.map(c=>c?c.id+':'+c.phase:'-'), cars:cars.filter(c=>c.phase!=='home').map(c=>{ const g=c.phase==='go'?c.segs[c.si]:null, nx=g&&c.segs[c.si+1];
+    return {id:c.id,col:c.color,ph:c.phase,st:(c.stuck||0).toFixed(0),x:Math.round(c.x),y:Math.round(c.y),ang:Math.round(c.ang*57.3),cell:g?g.cell:-1,next:nx?nx.cell:null,back:c.back,tgtShop:c.target&&c.target.type==='shop'?c.target.size:null,
+      gap:g?Math.round(gapAhead(c,g)):null, lf:nx&&g?lockFull(nx.cell,c):null, lot:nx&&g?lotFull(c,c.si+1):null, hold:c.holdBy, gateT:c.gateT&&c.gateT.toFixed(1), lock:c.lock, s:c.s&&c.s.toFixed(1), len:g?g.len.toFixed(1):(c.lot?c.lot.len.toFixed(1):null)}; })}); })()`));
+console.log(JSON.stringify(JSON.parse(r),null,0).replace(/\},\{/g,'},\n{'));
+await p.screenshot({path:__dirname+'/shots/lotdump.png'}); await b.close();})();

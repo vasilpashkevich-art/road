@@ -592,7 +592,7 @@ function mkCar(home){ return { id: ++carSeq, home, color: home.color, phase: 'ho
   x: cx(home.i), y: cy(home.i), ang: 0, da: 0, target: null, waitT: 0, lock: -1, waitG: -1, stuck: 0, ghost: 0, slot: -1, slotShop: null, lot: null, rev: false }; }
 function startTrip(car, path, target, back){
   car.path = path; car.segs = buildGeom(path); car.si = 0; car.s = 0; car.v = 0; car.phase = 'go'; car.back = back; car.target = target;
-  car.stuck = 0; car.ghost = 0; car.passCar = null; car.netV = netV; car.ox = car.oy = 0;
+  car.stuck = 0; car.ghost = 0; car.passCar = null; car.netV = netV; car.ox = car.oy = 0; car.gateT = 0; car.fromShop = null;
   const p = samp(car.segs[0], 0); car.x = p[0]; car.y = p[1]; car.ang = car.da = p[2];
   enterCell(car, car.segs[0].cell);
 }
@@ -619,8 +619,9 @@ function exitBlocked(car, g){ // do not enter the crossing while the road just p
     const [px, py] = samp(sg, 0);
     for (const o of cars){ if (o === car || o.phase !== 'go' || o.lock === g) continue;
       const ea = sg_ang(sg), dd = Math.hypot(o.x - px, o.y - py); if (Math.cos(o.ang - ea) <= 0.3) continue;
-      if (dd < MIN_GAP + CAR_L * 0.5 || (dd < LOOK && o.v < VMAX * 0.3)) return true; // room for a whole car past the crossing
-      const up = (px - o.x) * Math.cos(ea) + (py - o.y) * Math.sin(ea); if (up > 0 && dd < LOOK * 1.3 && o.v > VMAX * 0.2) return true; } // and yield to a car already coming along that road
+      const up = (px - o.x) * Math.cos(ea) + (py - o.y) * Math.sin(ea); // > 0: the car is still before the point where we come out
+      if (up < CAR_L * 1.5 && (dd < MIN_GAP + CAR_L * 0.5 || (dd < LOOK && o.v < VMAX * 0.3))) return true; // room for a whole car past the crossing (only cars ahead take it; one queueing behind does not)
+      if (up > 0 && dd < LOOK * 1.3 && o.v > VMAX * 0.2) return true; } // and yield to a car already coming along that road
     return false; }
   return false;
 }
@@ -652,7 +653,7 @@ function lockFull(cell, car){
   if (car.ghost <= 0 && lightStops(cell, car)) return true;
   const g = jGroup.get(cell); if (g === undefined || car.lock === g) return false;
   const s = locks.get(g); const occ = [];
-  if (s) for (const o of s) if (o !== car && o.phase === 'go' && o.lock === g) occ.push(o);
+  if (s) for (const o of s) if (o !== car && o.phase === 'go' && o.lock === g && !(car.fromShop && o.target === car.fromShop && !o.back)) occ.push(o); // the queue for the lot we just left waits on the other lane
   if (occ.length >= (jCap.get(g) === 3 ? 3 : 4)) return true;
   if (car.stuck >= 5) return false; // long wait: go as soon as there is physical room
   if (occ.length){ // several cars at once only if their ways never come close; on a ring only the merge has to be clear
@@ -765,7 +766,7 @@ function stepCar(car, dt){
       const s = car.target; s.pins = Math.max(0, s.pins - 1); s.reserved = Math.max(0, s.reserved - 1); trips++; s.done = (s.done || 0) + 1; if (!quiet && typeof launchChip === 'function') launchChip(s);
       car.phase = 'wait'; car.waitT = 1.0; car.v = 0; } return; }
   if (car.phase === 'wait'){ car.waitT -= dt;
-    if (car.waitT <= 0){ const p = lotMoving(car.target, ['park', 'unpark', 'leave']) ? null : bfsNodes(car.target.i, car.home); // one car pulls out at a time, never while another pulls in
+    if (car.waitT <= 0){ const p = lotMoving(car.target, ['park', 'unpark', 'leave']) ? null : bfsNodes(car.target.i, car.home); // one car backs out at a time, never while another turns in or drives out
       if (p){ // back out deeper into the lot so the nose ends up facing the exit
         const b = car.target;
         car.homePath = p; car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], ...backPts(b, stallsOf(b)[car.slot])]));
@@ -777,8 +778,9 @@ function stepCar(car, dt){
       car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], lanePt(b, 1.5, 0.62, true), [start[0], start[1]]]));
       car.s = 0; car.phase = 'leave'; car.rev = false; car.v = 0; } return; }
   if (car.phase === 'leave'){ const st0 = samp(buildGeom(car.homePath)[0], 0);
-    if (car.s > car.lot.len - MIN_GAP && !spotFree(st0[0], st0[1], car, st0[2])){ car.v = 0; return; } // wait at the gate until the road is clear
-    if (stepLot(car, dt)){ const v = car.v, da = car.da; releaseStall(car); startTrip(car, car.homePath, car.home, true); car.v = v; car.da = da; } return; }
+    if (car.s > car.lot.len - CAR_L * 2.4 && gateIn(car.target) && (car.gateT = (car.gateT || 0) + dt) < 8){ car.v = 0; return; } // someone is just turning in through the gate
+    if (car.s > car.lot.len - MIN_GAP && !spotFree(st0[0], st0[1], car, st0[2], car.target) && (car.gateT = (car.gateT || 0) + dt) < 8){ car.v = 0; return; } // wait at the gate until the road is clear (not for ever)
+    if (stepLot(car, dt)){ const v = car.v, da = car.da, from = car.slotShop; releaseStall(car); startTrip(car, car.homePath, car.home, true); car.v = v; car.da = da; car.fromShop = from; } return; }
   if (car.netV !== netV){ car.netV = netV; rebase(car); }
   if (car.ox || car.oy){ const k = Math.exp(-dt * 7); car.ox *= k; car.oy *= k; if (Math.abs(car.ox) + Math.abs(car.oy) < 0.05){ car.ox = 0; car.oy = 0; } }
   let seg = car.segs[car.si];
@@ -825,7 +827,7 @@ function stepCar(car, dt){
     car.s -= seg.len; car.si++;
     if (car.si >= car.segs.length){ arrive(car); return; }
     if (!car.back && car.si === car.segs.length - 1 && car.target.type === 'shop'){ // entering the lot
-      const k = lotMoving(car.target, ['unpark', 'leave']) ? -1 : freeStall(car.target); if (k < 0){ car.si--; car.s = seg.len; car.v = 0; break; }
+      const k = lotMoving(car.target, ['unpark']) || gateOut(car.target, car) ? -1 : freeStall(car.target); if (k < 0){ car.si--; car.s = seg.len; car.v = 0; break; }
       car.slot = k; car.slotShop = car.target; car.target.slots[k] = car;
       const [x0, y0] = samp(car.segs[car.si], 0); car.x = x0; car.y = y0; enterCell(car, -1); intoLot(car); return; }
     const ns = car.segs[car.si];
@@ -869,9 +871,11 @@ function stepLot(car, dt){
     if (Math.cos(o.ang - car.ang) < -0.3) continue; // oncoming car keeps to its own lane
     if (f > 0 && f < CAR_L * 1.15 && Math.abs(-dx * hy + dy * hx) < CAR_W * 1.1){ blocked = true; break; } }
   if (!blocked) for (const o of cars){ if (o.phase !== 'go' || Math.abs(o.x - car.x) > CAR_L * 1.6 || Math.abs(o.y - car.y) > CAR_L * 1.6) continue;
+    if (o.target === car.slotShop && !o.back && o.v < VMAX * 0.3) continue; // a car waiting to come into this lot lets us out first
     const fx = car.x + hx * 8, fy = car.y + hy * 8; if (((o.x - car.x) * hx + (o.y - car.y) * hy) > 0 && Math.cos(o.ang - car.ang) > -0.3 && boxHit(fx, fy, car.da, o.x, o.y, o.da, 2)){ blocked = true; break; } }
-  const vt = blocked ? 0 : vmax; car.v += Math.max(-DEC * dt, Math.min(ACC * dt, vt - car.v));
-  { const q = samp(g, Math.min(1, (car.s + car.v * dt) / g.len)); if (car.v > 0 && wouldHit(car, q[0], q[1], car.rev ? q[2] + Math.PI : q[2])) car.v = 0; }
+  const loose = (car.stuck || 0) > 5; // a lot car that has stood 5 s finishes its move: a lot must never lock up
+  const vt = blocked && !loose ? 0 : vmax; car.v += Math.max(-DEC * dt, Math.min(ACC * dt, vt - car.v));
+  { const q = samp(g, Math.min(1, (car.s + car.v * dt) / g.len)); if (!loose && car.v > 0 && wouldHit(car, q[0], q[1], car.rev ? q[2] + Math.PI : q[2])) car.v = 0; }
   if (car.v < 1) car.stuck = (car.stuck || 0) + dt; else car.stuck = 0;
   car.s += car.v * dt;
   const t = Math.min(1, car.s / g.len), [x, y, a] = samp(g, t);
@@ -879,14 +883,17 @@ function stepLot(car, dt){
   const face = car.rev ? a + Math.PI : a; let d = face - car.da; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; car.da += d * Math.min(1, dt * 14);
   return t >= 1;
 }
-const spotFree = (x, y, me, ang) => !cars.some(o => o !== me && o.phase === 'go' && Math.hypot(o.x - x, o.y - y) < MIN_GAP + 2 && (ang === undefined || Math.cos(o.ang - ang) > 0.3)); // only traffic going the same way blocks a start
+const spotFree = (x, y, me, ang, shop) => !cars.some(o => o !== me && o.phase === 'go' && !(shop && o.target === shop && !o.back) && Math.hypot(o.x - x, o.y - y) < MIN_GAP + 2 && (ang === undefined || Math.cos(o.ang - ang) > 0.3)); // only traffic going the same way blocks a start; cars queueing for this lot wait for us
+// The gate of a lot passes one way at a time: nobody turns in while a car is driving out through it, and the other way round.
+const gateOut = (sh, me) => { const inDoor = me && me.segs && me.segs[me.si] && me.segs[me.si].cell === sh.doorCell; return cars.some(o => o !== me && ((o.phase === 'leave' && o.slotShop === sh && o.s > o.lot.len - CAR_L * 2.2) || (o.phase === 'go' && o.back && o.fromShop === sh && o.segs[o.si] && (o.segs[o.si].cell === sh.i || (!inDoor && o.segs[o.si].cell === sh.doorCell && o.si <= 1))))); };
+const gateIn = sh => cars.some(o => o.phase === 'park' && o.slotShop === sh && o.s < CAR_L * 1.8);
 function lotFull(car, k){
   if (car.back || car.target.type !== 'shop') return false;
   const sg = car.segs[k]; if (!sg) return false;
   const last = k === car.segs.length - 1, door = car.target.doorCell;
   const intoDoorCrossing = sg.cell === door && jGroup.has(door) && (car.si < 0 || car.segs[car.si].cell === -1 || jGroup.get(car.segs[car.si].cell) !== jGroup.get(door));
   if (!last && !intoDoorCrossing) return false;
-  return freeStall(car.target) < 0 || lotMoving(car.target, ['unpark', 'leave']); }
+  return freeStall(car.target) < 0 || lotMoving(car.target, ['unpark']) || gateOut(car.target, car); }
 function goHome(car){
   releaseStall(car); car.passCar = null;
   if (!car.back && car.target && car.phase === 'go') car.target.reserved = Math.max(0, car.target.reserved - 1);
