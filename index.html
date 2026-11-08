@@ -166,6 +166,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
   <div class="dock">
     <button id="tDraw" class="on" type="button">Дорога <span class="n" id="nRoad">0</span></button>
     <button id="tErase" type="button" title="Стирает дороги; нажатие на шоссе снимает его">Стереть</button>
+    <button id="tBend" type="button" title="Потяни дорогу в сторону — она плавно выгнется">Изгиб</button>
     <button id="tRing" type="button">Кольцо <span class="n" id="nRing">0</span></button>
     <button id="tHw" type="button">Шоссе <span class="n" id="nHw">0</span></button>
     <button id="tLight" type="button">Светофор <span class="n" id="nLight">0</span></button>
@@ -249,8 +250,14 @@ const OPP8 = d => (d + 4) & 7;
 const pathOk = p => !!p && p.every((x, k) => k === 0 || adj8(p[k - 1], x) || (hwOf.has(p[k - 1]) && hwOf.get(p[k - 1]).partner === x));
 const adj8 = (a, b) => a !== b && Math.max(Math.abs(col_(a) - col_(b)), Math.abs(row_(a) - row_(b))) === 1;
 const dir8 = (a, b) => { const dc = col_(b) - col_(a), dr = row_(b) - row_(a); return D8.findIndex(v => v[0] === dc && v[1] === dr); };
+// The player can nudge a road sideways ("Изгиб"): each plain road cell may carry a small offset of its centre line;
+// the line between two cells passes through the average of their offsets, so the road flows smoothly and the cars follow it.
+let roadOff = new Map(); const OFF_MAX = CELL * 0.34;
+const offOf = i => roadOff.get(i) || [0, 0];
+const ctr = i => { const o = offOf(i); return [cx(i) + o[0], cy(i) + o[1]]; };
 const ROAD_W = CELL * 0.52; // road width (two lanes and a hair of kerb)
 const mid = (i, d) => [cx(i) + D8[d][0] * H, cy(i) + D8[d][1] * H];
+const midO = (i, d) => { const m = mid(i, d), j = at8(i, d), a = offOf(i), b = j >= 0 ? offOf(j) : [0, 0]; return [m[0] + (a[0] + b[0]) / 2, m[1] + (a[1] + b[1]) / 2]; };
 // Smooth corners: a plain bend between two plain straight pieces is drawn (and driven) as one wide curve from the middle of one straight cell
 // to the middle of the other, instead of a tight turn inside its own cell.
 const liveNb = i => [...eOf(i)].filter(j => !dying.has(ekey(i, j)));
@@ -354,7 +361,7 @@ function makeRiver(){
 }
 function reset(){
   sizeGrid();
-  flies = []; dying = new Set(); E = new Map(); occ = new Map(); lights = new Map(); lightN = 0; roads = new Set(); doors = new Set(); bridgeOf = new Map(); bridgeSeq = 0; rings = new Set(); ringZone = new Set(); tunnelOf = new Map(); tunnelSeq = 0; hws = []; hwOf = new Map();
+  flies = []; dying = new Set(); E = new Map(); roadOff = new Map(); occ = new Map(); lights = new Map(); lightN = 0; roads = new Set(); doors = new Set(); bridgeOf = new Map(); bridgeSeq = 0; rings = new Set(); ringZone = new Set(); tunnelOf = new Map(); tunnelSeq = 0; hws = []; hwOf = new Map();
   bld = new Map(); cars = []; locks = new Map();
   nextHouse = null; time = 0; trips = 0; over = false; spawnHouseT = T.firstHouse; spawnShopT = T.firstShop; colorsInPlay = 1;
   budget = T.startRoads; bridgesN = MAPS[mapId].bridges; tunnelsN = MAPS[mapId].tunnels || 0; ringN = 0; hwN = 0; weekT = WEEK; week = 1; hwStart = -1;
@@ -552,7 +559,7 @@ function neediestColor(){ // the colour whose shops have the fewest houses per s
 function autoDoor(i){ if (!roads.has(i) || !doors.has(i)) return;
   for (const b of bld.values()) if (b.doorCell === i && !hasEdge(b.i, i)) addEdge(b.i, i); }
 let netV = 0; // bumps whenever the road network changes, so driving cars look again at their way
-function refreshNode(i){ netV++; if (eOf(i).size > 0 && !bld.has(i)) roads.add(i); else if (roads.delete(i)) cleanup(i); if (E.has(i) && !E.get(i).size) E.delete(i); } // a cell that stops being road lets go of its ring, light or highway end, however that happened
+function refreshNode(i){ netV++; if (!eOf(i).size) roadOff.delete(i); if (eOf(i).size > 0 && !bld.has(i)) roads.add(i); else if (roads.delete(i)) cleanup(i); if (E.has(i) && !E.get(i).size) E.delete(i); } // a cell that stops being road lets go of its ring, light or highway end, however that happened
 function addEdge(a, b){ if (!E.has(a)) E.set(a, new Set()); if (!E.has(b)) E.set(b, new Set()); E.get(a).add(b); E.get(b).add(a); refreshNode(a); refreshNode(b); }
 function delEdge(a, b){ eOf(a).delete(b); eOf(b).delete(a); refreshNode(a); refreshNode(b); }
 const freeEdge = (a, b) => bld.has(a) || bld.has(b) || water.has(a) || water.has(b) || mount.has(a) || mount.has(b); // drives, bridges and tunnels do not use road stock
@@ -662,11 +669,11 @@ function buildGeom(path){
     if (k > 0 && k < path.length - 1 && ((rings.has(next) && isArm(i, next) && k + 2 < path.length && isArm(path[k + 2], next)) || (rings.has(prev) && isArm(i, prev) && k >= 2 && isArm(path[k - 2], prev)))) continue; // an arm is part of its roundabout
     if (rings.has(i) && prev >= 0 && next >= 0 && isArm(prev, i) && isArm(next, i) && k >= 2 && k + 2 < path.length){ segs.push(bigRing(i, prev, next, k)); continue; }
     const din = prev >= 0 && adj8(prev, i) ? dir8(i, prev) : -1, dout = next >= 0 && adj8(i, next) ? dir8(i, next) : -1;
-    const C = [cx(i), cy(i)];
+    const C = ctr(i), mid = midO;
     if (din >= 0 && dout >= 0){
       if (rings.has(i)) segs.push(ringSeg(i, din, dout, k));
-      else if (din === OPP8(dout)){ const a = smoothNext(i, prev) ? C : mid(i, din), b = smoothNext(i, next) ? C : mid(i, dout); segs.push(mk('line', a, null, b, k, i)); }
-      else if (smoothCorner(i) && k >= 1 && k + 1 < path.length && smoothCorner(i).includes(prev) && smoothCorner(i).includes(next)) segs.push(mk('curve', [cx(prev), cy(prev)], C, [cx(next), cy(next)], k, i));
+      else if (din === OPP8(dout)){ const a = smoothNext(i, prev) ? C : mid(i, din), b = smoothNext(i, next) ? C : mid(i, dout); segs.push(roadOff.has(i) && a !== C && b !== C ? mk('curve', a, C, b, k, i) : mk('line', a, null, b, k, i)); } // a nudged straight piece bows through its moved middle
+      else if (smoothCorner(i) && k >= 1 && k + 1 < path.length && smoothCorner(i).includes(prev) && smoothCorner(i).includes(next)) segs.push(mk('curve', ctr(prev), C, ctr(next), k, i));
       else segs.push(mk('curve', mid(i, din), C, mid(i, dout), k, i));
     } else if (din >= 0) segs.push(mk('line', mid(i, din), null, C, k, i));
     else if (dout >= 0) segs.push(mk('line', C, null, mid(i, dout), k, i));
@@ -1141,13 +1148,13 @@ const edgeBorn = new Map(), GROW = 180; // ms for a new piece of road to grow ou
 function growOf(i, j){ const k = i < j ? i + ',' + j : j + ',' + i, t0 = edgeBorn.get(k); if (t0 === undefined) return 1;
   const f = (performance.now() - t0) / GROW; if (f >= 1){ edgeBorn.delete(k); return 1; } return 1 - Math.pow(1 - f, 3); }
 function strokeCell(i){
-  const nb2 = [...eOf(i)].filter(j => !dying.has(ekey(i, j))), n = nb2.map(j => dir8(i, j)), C = [cx(i), cy(i)];
-  const tip = (k) => { const e = mid(i, n[k]), f = growOf(i, nb2[k]); return [C[0] + (e[0] - C[0]) * f, C[1] + (e[1] - C[1]) * f]; };
+  const nb2 = [...eOf(i)].filter(j => !dying.has(ekey(i, j))), n = nb2.map(j => dir8(i, j)), C = ctr(i);
+  const tip = (k) => { const e = n[k] >= 0 ? midO(i, n[k]) : mid(i, n[k]), f = growOf(i, nb2[k]); return [C[0] + (e[0] - C[0]) * f, C[1] + (e[1] - C[1]) * f]; };
   ctx.beginPath();
   const sc = smoothCorner(i);
-  if (sc && nb2.length === 2 && growOf(i, nb2[0]) >= 1 && growOf(i, nb2[1]) >= 1){ ctx.moveTo(cx(sc[0]), cy(sc[0])); ctx.quadraticCurveTo(C[0], C[1], cx(sc[1]), cy(sc[1])); }
+  if (sc && nb2.length === 2 && growOf(i, nb2[0]) >= 1 && growOf(i, nb2[1]) >= 1){ { const a = ctr(sc[0]), b = ctr(sc[1]); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo(C[0], C[1], b[0], b[1]); } }
   else if (n.length === 2 && n[0] === OPP8(n[1]) && (smoothNext(i, nb2[0]) || smoothNext(i, nb2[1]))){ const k = smoothNext(i, nb2[0]) ? 1 : 0, e = tip(k); ctx.moveTo(C[0], C[1]); ctx.lineTo(e[0], e[1]); } // only the half away from the bend
-  else if (n.length === 2 && n[0] !== OPP8(n[1])){ const a = tip(0), b = tip(1); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo(C[0], C[1], b[0], b[1]); }
+  else if (n.length === 2 && (n[0] !== OPP8(n[1]) || roadOff.has(i))){ const a = tip(0), b = tip(1); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo(C[0], C[1], b[0], b[1]); }
   else if (n.length === 0){ ctx.moveTo(C[0], C[1]); ctx.lineTo(C[0] + 0.01, C[1]); }
   else { for (let k = 0; k < n.length; k++){ const e = tip(k); ctx.moveTo(C[0], C[1]); ctx.lineTo(e[0], e[1]); }
     // a crossing gets rounded inside corners too: neighbouring arms (45° or 90° apart) are joined by a curve, so no square corner is left
@@ -1466,6 +1473,20 @@ function draw(){
 let toastT = 0;
 function toast(msg){ const t = $('toast'); t.textContent = msg; t.hidden = false; t.style.opacity = 1; toastT = 2.2; }
 function setPaused(p){ paused = p; $('pauseBtn').textContent = p ? 'Дальше' : 'Пауза'; $('pauseBtn').classList.toggle('on', p); }
+// Bending a road: press on a road and drag sideways; the cells around bulge smoothly the way you pull (a little, never off the road's own cells).
+let bendRd = null;
+const bendable = i => roads.has(i) && plainCell(i) && liveNb(i).length === 2 && liveNb(i).every(j => adj8(i, j)) && !liveNb(i).some(j => ringZone.has(j) || bridgeOf.has(j) || hwOf.has(j));
+function worldOf(ev){ const r = cv.getBoundingClientRect(); return [(ev.clientX - r.left - offX) / scale, (ev.clientY - r.top - offY) / scale]; }
+function startBend(ev){ const p = worldOf(ev), i = toCell(ev, false); if (i < 0 || !roads.has(i)) return false;
+  const near = []; const c0 = col_(i), r0 = row_(i);
+  for (let dc = -5; dc <= 5; dc++) for (let dr = -5; dr <= 5; dr++){ if (!inb(c0 + dc, r0 + dr)) continue; const j = idx(c0 + dc, r0 + dr); if (!bendable(j)) continue;
+    const w = Math.max(0, 1 - Math.hypot(dc, dr) / 4.8); if (w > 0) near.push([j, w * w * (3 - 2 * w), offOf(j).slice()]); }
+  if (!near.length){ toast('Здесь дорогу не выгнуть: тяни за прямой участок или поворот, не у перекрёстка и не у дома'); return false; }
+  bendRd = { p0: p, near }; return true; }
+function moveBend(ev){ const p = worldOf(ev), d = [p[0] - bendRd.p0[0], p[1] - bendRd.p0[1]];
+  for (const [j, w, o0] of bendRd.near){ let x = o0[0] + d[0] * w, y = o0[1] + d[1] * w; const l = Math.hypot(x, y); if (l > OFF_MAX){ x *= OFF_MAX / l; y *= OFF_MAX / l; }
+    if (Math.hypot(x, y) < 0.5) roadOff.delete(j); else roadOff.set(j, [Math.round(x * 10) / 10, Math.round(y * 10) / 10]); }
+  netV++; }
 function setMode(m){
   if (m === 'ring' && ringN <= 0){ toast('Колец нет — их дают в начале недели'); return; }
   if (m === 'hw' && hwN <= 0){ toast('Шоссе нет — его дают в начале недели'); return; }
@@ -1679,6 +1700,7 @@ cv.addEventListener('pointerdown', ev => {
   if (ev.button === 0 && (mode === 'draw' || mode === 'hw') && hwStart < 0){ const m = hwEndAt(ev); if (m){ const r = cv.getBoundingClientRect(); moveHw = { ...m, to: -1, x: cx(m.h[m.e]), y: cy(m.h[m.e]) }; cv.setPointerCapture(ev.pointerId); return; } }
   if (ev.button === 0 && (mode === 'draw' || mode === 'hw') && hwStart < 0){ const g = hwHandleAt(ev); if (g){ bendHw = { ...g, m0: g.h.m || null, bad: '' }; cv.setPointerCapture(ev.pointerId); return; } }
   const i = toCell(ev);
+  if (ev.button !== 2 && mode === 'bend'){ if (startBend(ev)) cv.setPointerCapture(ev.pointerId); return; }
   if (ev.button !== 2 && mode === 'ring'){ if (i >= 0) tapRing(i); return; }
   if (ev.button !== 2 && mode === 'hw'){ if (i >= 0) tapHw(i); return; }
   if (ev.button !== 2 && mode === 'light'){ if (i >= 0) tapLight(i); return; }
@@ -1692,12 +1714,13 @@ cv.addEventListener('pointermove', ev => {
     panBy(x - pinch.x, y - pinch.y); zoomAt(x - r.left, y - r.top, d / Math.max(1, pinch.d)); pinch = { d, x, y }; return; }
   if (midPan){ panBy(ev.clientX - midPan.x, ev.clientY - midPan.y); midPan = { x: ev.clientX, y: ev.clientY }; return; }
   if (bendHw){ bendTo(ev); return; }
+  if (bendRd){ moveBend(ev); return; }
   if (moveHw){ const r = cv.getBoundingClientRect(); moveHw.x = (ev.clientX - r.left - offX) / scale; moveHw.y = (ev.clientY - r.top - offY) / scale; moveHw.to = toCell(ev, false); return; }
   hoverCell = toCell(ev, false);
   if (!drawing) return; const i = toCell(ev, true);
   if (i < 0 || i === last) return; if (last >= 0 && !adj8(last, i)) walk(last, i); else apply(i); });
 const up = ev => { // a stroke released at the edge of a cell still takes that cell
-  touches.delete(ev.pointerId); if (pinch){ if (touches.size < 2) pinch = null; return; } if (midPan){ midPan = null; return; } if (bendHw){ endBend(); return; } if (moveHw){ endMove(); return; }
+  touches.delete(ev.pointerId); if (pinch){ if (touches.size < 2) pinch = null; return; } if (midPan){ midPan = null; return; } if (bendHw){ endBend(); return; } if (moveHw){ endMove(); return; } if (bendRd){ bendRd = null; saveNow(); return; }
   if (drawing && ev && ev.type === 'pointerup'){ const i = toCell(ev, false); if (i >= 0 && last >= 0 && i !== last && adj8(last, i)) apply(i); }
   drawing = false; last = -1; stroke = null; };
 cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
@@ -1708,7 +1731,7 @@ cv.addEventListener('wheel', ev => { ev.preventDefault(); const r = cv.getBoundi
   if (ev.ctrlKey || mouseWheel) zoomAt(ev.clientX - r.left, ev.clientY - r.top, Math.exp(-ev.deltaY * (ev.ctrlKey ? 0.01 : 0.0015)));
   else panBy(-ev.deltaX, -ev.deltaY); }, { passive: false });
 $('tDraw').onclick = () => setMode('draw'); $('tErase').onclick = () => setMode('erase');
-$('tRing').onclick = () => setMode('ring'); $('tHw').onclick = () => setMode('hw'); $('tLight').onclick = () => setMode('light');
+$('tBend').onclick = () => setMode('bend'); $('tRing').onclick = () => setMode('ring'); $('tHw').onclick = () => setMode('hw'); $('tLight').onclick = () => setMode('light');
 $('tBridge').onclick = () => toast('Мост ставится сам, когда ведёшь дорогу через реку');
 $('tTunnel').onclick = () => toast('Туннель ставится сам, когда ведёшь дорогу через гору');
 $('pauseBtn').onclick = () => { if (!over && !choosing) setPaused(!paused); };
@@ -1833,7 +1856,7 @@ function frame(now){ const dt = Math.min(0.05, (now - lastT) / 1000); lastT = no
   $('nRoad').textContent = budget; $('nRing').textContent = ringN; $('nHw').textContent = hwN; $('nBridge').textContent = bridgesN; $('nLight').textContent = lightN; $('tLight').classList.toggle('empty', lightN <= 0 && mode !== 'light');
   $('tRing').classList.toggle('empty', ringN <= 0 && mode !== 'ring'); $('tHw').classList.toggle('empty', hwN <= 0 && mode !== 'hw');
   $('tBridge').classList.toggle('empty', bridgesN <= 0); $('tTunnel').hidden = !mount.size; $('nTunnel').textContent = tunnelsN; $('tTunnel').classList.toggle('empty', tunnelsN <= 0);
-  const tag = $('tag'), msg = mode === 'ring' ? ringHint() : paused ? 'Пауза — дороги рисовать можно' : mode === 'erase' ? 'Веди по дороге, чтобы стереть; нажми на шоссе, чтобы снять его' : mode === 'ring' ? ringHint() : mode === 'light' ? 'Нажми на перекрёсток, где поставить светофор' :
+  const tag = $('tag'), msg = mode === 'ring' ? ringHint() : mode === 'bend' ? 'Потяни дорогу в сторону — она плавно выгнется' : paused ? 'Пауза — дороги рисовать можно' : mode === 'erase' ? 'Веди по дороге, чтобы стереть; нажми на шоссе, чтобы снять его' : mode === 'ring' ? ringHint() : mode === 'light' ? 'Нажми на перекрёсток, где поставить светофор' :
     mode === 'hw' ? (hwStart < 0 ? 'Нажми на дорогу — начало шоссе' : 'Теперь нажми на дорогу — конец шоссе') : '';
   tag.hidden = !msg; tag.textContent = msg;
   if (toastT > 0){ toastT -= dt; if (toastT <= 0.3) $('toast').style.opacity = Math.max(0, toastT / 0.3); if (toastT <= 0) $('toast').hidden = true; }
@@ -1867,7 +1890,7 @@ function serialize(){
   const edges = []; for (const [a, set] of E) for (const b of set) if (a < b && !dying.has(ekey(a, b))) edges.push([a, b]);
   const blds = [...bld.values()].map(b => b.type === 'house' ? { k: 'h', i: b.i, c: b.color, d: b.door }
     : { k: 's', i: b.i, c: b.color, d: b.door, l: b.lat, z: b.size, g: b.lvl || 0, p: b.pins, o: Math.round(b.overT * 10) / 10, pt: Math.round(b.pinT * 10) / 10, t: Math.round(b.t), tw: b.twin ? b.twin.i : undefined });
-  return { v: 1, map: mapId, area, cols, rows, water: [...water], mount: [...mount], trees: [...trees], tunnels: [...tunnelOf], tunnelSeq, river: riverChain, edges, bridges: [...bridgeOf], bridgeSeq, rings: [...rings], lights: [...lights].map(([i, L]) => [i, L.g]),
+  return { v: 1, map: mapId, area, cols, rows, water: [...water], mount: [...mount], trees: [...trees], tunnels: [...tunnelOf], tunnelSeq, river: riverChain, edges, bridges: [...bridgeOf], bridgeSeq, rings: [...rings], off: [...roadOff], lights: [...lights].map(([i, L]) => [i, L.g]),
     hws: hws.map(h => h.m ? [h.a, h.b, h.m] : [h.a, h.b]), blds, s: { time, trips, week, weekT, budget, bridgesN, tunnelsN, ringN, hwN, lightN, colorsInPlay, spawnHouseT, spawnShopT }, offers: choosing ? offerKeys : null };
 }
 function deserialize(d){
@@ -1887,6 +1910,7 @@ function deserialize(d){
       doors.add(sb.doorCell); for (const x of sb.cells) occ.set(x, sb); bld.set(sb.i, sb); } }
   for (const b of bld.values()) if (b.twinI !== undefined && b.size === 'twin' && bld.get(b.twinI)) twinUp(b, bld.get(b.twinI));
   for (const [a, b] of d.edges) addEdge(a, b);
+  roadOff = new Map(d.off || []);
   bridgeOf = new Map(d.bridges); bridgeSeq = d.bridgeSeq || 0; rings = new Set(d.rings); zoneRings();
   lights = new Map(d.lights.map(([i, g]) => [i, { g, t: 0, clear: 0, want: [false, false] }]));
   for (const [a, b, m] of d.hws){ const h = { a, b, m: m || null }; shapeHw(h); hws.push(h); hwOf.set(a, { h, partner: b }); hwOf.set(b, { h, partner: a }); }
