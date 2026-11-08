@@ -891,7 +891,7 @@ function stepCar(car, dt){
       const s = car.target; s.pins = Math.max(0, s.pins - 1); s.reserved = Math.max(0, s.reserved - 1); trips++; s.done = (s.done || 0) + 1; if (!quiet && typeof launchChip === 'function') launchChip(s);
       car.phase = 'wait'; car.waitT = 1.0; car.v = 0; } return; }
   if (car.phase === 'wait'){ car.waitT -= dt;
-    if (car.waitT <= 0){ const p = lotMoving(car.target, ['park', 'unpark', 'leave']) ? null : bfsNodes(car.target.i, car.home); // one car backs out at a time, never while another turns in or drives out
+    if (car.waitT <= 0){ const p = bfsNodes(car.target.i, car.home); // one car backs out at a time, never while another turns in or drives out
       if (p){ // back out deeper into the lot so the nose ends up facing the exit
         const b = car.target;
         car.homePath = p; car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], ...backPts(b, stallsOf(b)[car.slot])]));
@@ -905,8 +905,8 @@ function stepCar(car, dt){
       car.s = 0; car.phase = 'leave'; car.rev = false; car.v = 0; } return; }
   if (car.phase === 'leave'){ const st0 = samp(buildGeom(car.homePath)[0], 0);
     if (car.s > car.lot.len - CAR_L * 2.4 && gateIn(car.target) && (car.gateT = (car.gateT || 0) + dt) < 8){ car.v = 0; return; } // someone is just turning in through the gate
-    if (car.s > car.lot.len - MIN_GAP && !spotFree(st0[0], st0[1], car, st0[2], car.target)){ car.v = 0; return; } // wait at the gate until the road is clear: never pull out onto a car
-    if (stepLot(car, dt)){ const v = car.v, da = car.da, from = car.slotShop; releaseStall(car); startTrip(car, car.homePath, car.home, true); car.v = v; car.da = da; car.fromShop = from; } return; }
+    if (car.s > car.lot.len - MIN_GAP && !spotFree(st0[0], st0[1], car, st0[2], car.target) && (car.gateT = (car.gateT || 0) + dt) < 3){ car.v = 0; return; } // wait at the gate until the road is clear: never pull out onto a car
+    if (stepLot(car, dt)){ const v = car.v, da = car.da, from = car.slotShop, push = (car.gateT || 0) >= 3; releaseStall(car); startTrip(car, car.homePath, car.home, true); car.v = v; car.da = da; car.fromShop = from; if (push) car.ghost = 1.5; } return; }
   if (car.netV !== netV){ car.netV = netV; rebase(car); }
   if (car.ox || car.oy){ const k = Math.exp(-dt * 7); car.ox *= k; car.oy *= k; if (Math.abs(car.ox) + Math.abs(car.oy) < 0.05){ car.ox = 0; car.oy = 0; } }
   let seg = car.segs[car.si];
@@ -917,6 +917,7 @@ function stepCar(car, dt){
     const bendV = g => Math.min(crossV(g), g.kind === 'curve' ? VMAX * 0.85 : (g.kind === 'poly' ? VMAX * 0.8 : Infinity));
     vt = Math.min(vt, bendV(seg)); const nx = car.segs[car.si + 1];
     if (nx){ const vb = bendV(nx); if (vb < Infinity) vt = Math.min(vt, Math.sqrt(vb * vb + 2 * CELL * 8 * Math.max(0, seg.len - car.s))); } }
+  if (car.ghost <= 0 && (car.stuck || 0) > 12 && !inProperQueue(car)){ car.ghost = 1.5; car.stuck = 0; } // never stand for ever: after 12 s it slips through (but a queue for a full lot or a red light is a real queue)
   if (car.ghost > 0) car.ghost -= dt;
   else {
     const gap = gapAhead(car, seg); car.gap = gap;
@@ -932,7 +933,7 @@ function stepCar(car, dt){
   // hard rule: never move closer than a body length plus a hair to the car ahead, however fast we were going
   if (car.passCar && (car.passCar.phase !== 'go' || Math.hypot(car.passCar.x - car.x, car.passCar.y - car.y) > CAR_L * 1.4 || (car.passT += dt) > 2.5)) car.passCar = null; // a short leave only, counted even while standing: two cars must not stay on top of each other
   let step = car.v * dt; if (car.ghost <= 0 && car.gap !== undefined && car.gap < LOOK){ const room = Math.max(0, car.gap - CAR_L - 3); if (step > room){ step = room; car.v = Math.min(car.v, room / dt); } }
-  if (step > 0){ let tries = 0; // shorten the step until the body is clear
+  if (step > 0 && car.ghost <= 0){ let tries = 0; // shorten the step until the body is clear (a car slipping through skips this)
     const shown = a => { let d = a - car.da; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return car.da + d * Math.min(1, dt * 16); }; // the body as it will be drawn
     const at = d => { let k = car.si, r = car.s + d; while (r > car.segs[k].len && k + 1 < car.segs.length){ r -= car.segs[k].len; k++; } return samp(car.segs[k], Math.min(1, r / car.segs[k].len)); }; // where the car really ends up, even past a segment end
     // Two cars standing nose to side in each other's way would wait forever. After a moment one of them squeezes past
@@ -990,10 +991,14 @@ function intoLot(car){ // drive up the middle and pull into the stall nose first
   const b = car.target; car.passCar = null;
   car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], ...parkPts(b, stallsOf(b)[car.slot])])); car.s = 0; car.phase = 'park'; car.rev = false;
 }
+function waitsRightly(o){ const nx = o.segs && o.segs[o.si + 1]; return !!nx && nx.cell >= 0 && (lotFull(o, o.si + 1) || lightStops(nx.cell, o)); }
+function inProperQueue(car){ if (waitsRightly(car)) return true;
+  return cars.some(o => o !== car && o.phase === 'go' && Math.hypot(o.x - car.x, o.y - car.y) < CAR_L * 3.2 && waitsRightly(o)); }
 function stepLot(car, dt){
   const g = car.lot, vmax = VMAX * 0.42;
   let blocked = false; const hx = Math.cos(car.ang), hy = Math.sin(car.ang);
-  for (const o of cars){ if (o === car || o.slotShop !== car.slotShop || !(o.phase === 'park' || o.phase === 'unpark' || o.phase === 'leave')) continue;
+  for (const o of cars){ if (true) break; // cars in the same lot do not hold each other up (as in Mini Motorways): a lot can never lock up
+    if (o === car || o.slotShop !== car.slotShop || !(o.phase === 'park' || o.phase === 'unpark' || o.phase === 'leave')) continue;
     const dx = o.x - car.x, dy = o.y - car.y, f = dx * hx + dy * hy;
     if (Math.cos(o.ang - car.ang) < -0.3) continue; // oncoming car keeps to its own lane
     if (f > 0 && f < CAR_L * 1.15 && Math.abs(-dx * hy + dy * hx) < CAR_W * 1.1){ blocked = true; break; } }
@@ -1001,7 +1006,7 @@ function stepLot(car, dt){
     if (o.target === car.slotShop && !o.back && o.v < VMAX * 0.3) continue; // a car waiting to come into this lot lets us out first
     const fx = car.x + hx * 8, fy = car.y + hy * 8; if (((o.x - car.x) * hx + (o.y - car.y) * hy) > 0 && Math.cos(o.ang - car.ang) > -0.3 && boxHit(fx, fy, car.da, o.x, o.y, o.da, 2)){ blocked = true; break; } }
   if (car.lotG !== g){ car.lotG = g; car.lotT = 0; } car.lotT += dt;
-  const loose = (car.stuck || 0) > 5 || car.lotT > g.len / vmax + 5; // a lot move that has taken 5 s too long finishes anyway: a lot must never lock up, even when cars inch back and forth
+  const loose = (car.stuck || 0) > 2 || car.lotT > g.len / vmax + 2; // a lot move that has taken 5 s too long finishes anyway: a lot must never lock up, even when cars inch back and forth
   const vt = blocked && !loose ? 0 : vmax; car.v += Math.max(-DEC * dt, Math.min(ACC * dt, vt - car.v));
   { const q = samp(g, Math.min(1, (car.s + car.v * dt) / g.len)); if (!loose && car.v > 0 && wouldHit(car, q[0], q[1], car.rev ? q[2] + Math.PI : q[2])) car.v = 0; }
   if (car.v < 1) car.stuck = (car.stuck || 0) + dt; else car.stuck = 0;
