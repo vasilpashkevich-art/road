@@ -1,7 +1,7 @@
 // injected inside the game IIFE: has access to all internals
 window.__sim = function(seed, maxT, dt, cfg){
   let a = seed >>> 0; Math.random = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-  Object.assign(T, cfg.T || {}); if (cfg.cycle){ let kk = 0; const ts = ['twin', 'm', 'square', 'twin', 'm', 'kiosk']; pickShopSize = () => ts[kk++ % ts.length]; } menuOpen = false; if (cfg.map) mapId = cfg.map; reset(); resize();
+  Object.assign(T, cfg.T || {}); if (cfg.cycle){ let kk = 0; const ts = ['mm', 'twin', 'mm']; pickShopSize = () => ts[kk++ % ts.length]; } menuOpen = false; if (cfg.map) mapId = cfg.map; reset(); resize();
   const st = { firstPin5: null, firstPin8: null, maxStopped: 0, roadShort: 0, bridgeShort: 0, ringsPlaced: 0, picks: {}, ghosts: 0, weeks: 0 };
   const reach = (h, s) => !!bfsNodes(h.i, s);
   function route(from, to){ // dijkstra over 8-neighbour moves the player could draw

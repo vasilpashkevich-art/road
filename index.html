@@ -360,7 +360,7 @@ function reset(){
   const mc = Math.floor(cols / 2), mr = Math.floor(rows / 2);
   for (let rad = 0, done = false; rad < 8 && !done; rad++) for (let dc = -rad; dc <= rad && !done; dc++) for (let dr = -rad; dr <= rad && !done; dr++){
     if (Math.max(Math.abs(dc), Math.abs(dr)) !== rad || !inb(mc + dc, mr + dr)) continue;
-    if (placeShop(idx(mc + dc, mr + dr), 0, 'kiosk')){ done = true; const sb = [...bld.values()][0];
+    if (placeShop(idx(mc + dc, mr + dr), 0, 'mm')){ done = true; const sb = [...bld.values()][0];
       for (let k = 0; k < 2; k++){ const h = spotNear(sb.i); if (h >= 0) place(h, 'house', 0); } } }
 }
 function pickDoor(i){ // the one side a building can be reached from
@@ -383,6 +383,7 @@ const SHOP_TYPES = {
   corner: { name: 'Угловой', depth: 2, lot: [0, 0, 2, 2], bld: [[0, 2, 3, 3], [2, 0, 3, 3]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
   m:      { name: 'Средний', depth: 1, lot: [0, 0, 3, 1], bld: [[0, 1, 2, 3]], stalls: [[2.36, 0.62], [0.64, 0.62]] }, // Mini Motorways' plain destination: a block with a strip of lot in front
   long:   { name: 'Длинный', depth: 3, lot: [1, 0, 3, 3], bld: [[0, 0, 1, 3]], stalls: [[2.3, 0.5, 'h'], [2.3, 0.97, 'h'], [2.3, 1.44, 'h'], [2.3, 1.91, 'h'], [2.3, 2.38, 'h']] },
+  mm:     { name: 'Обычный', depth: 2, lot: [1, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[1.76, 0.8, 'h'], [1.76, 1.38, 'h']], short: true }, // Mini Motorways: a 2×2 block with a one-cell strip of lot along its side
   twin:   { name: 'Сдвоенный', depth: 2, lot: [0, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
   twinB:  { name: 'Сдвоенный', depth: 2, lot: [0, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
   l:      { name: 'Прямой', depth: 3, lot: [0, 0, 3, 3], bld: [[0, 3, 3, 4]], stalls: [[2.36, 0.8], [0.64, 0.8], [2.36, 1.3], [0.64, 1.3], [2.36, 1.8], [0.64, 1.8], [2.36, 2.3], [0.64, 2.3]] } };
@@ -390,13 +391,14 @@ for (const k in SHOP_TYPES){ const T0 = SHOP_TYPES[k]; T0.lotCells = cellsOf(...
 const LEGACY_SHOP = { s: 'kiosk' }; // saves from before the shapes
 const stallsOf = b => SHOP_TYPES[b.size].stalls;
 // How many orders a shop holds before its timer starts, and how often it orders: small ones 6, big ones up to 10; a grown shop holds 2 more and orders a quarter faster.
-const SHOP_CAP = { kiosk: 6, square: 6, corner: 6, m: 6, long: 8, l: 10, twin: 5, twinB: 5 }, SHOP_RATE = { kiosk: 1.25, square: 1.1, corner: 1.1, m: 1.25, long: 1, l: 0.85, twin: 0.85, twinB: 0.85 };
+const SHOP_CAP = { mm: 6, kiosk: 6, square: 6, corner: 6, m: 6, long: 8, l: 10, twin: 5, twinB: 5 }, SHOP_RATE = { mm: 1.25, kiosk: 1.25, square: 1.1, corner: 1.1, m: 1.25, long: 1, l: 0.85, twin: 0.85, twinB: 0.85 };
 const capOf = b => (SHOP_CAP[b.size] || 8) + (b.lvl ? 2 : 0), rateOf = b => (SHOP_RATE[b.size] || 1) * (b.lvl ? 0.75 : 1);
 function pickShopSize(){ const r = Math.random(), pick = w => { let t = 0; for (const [k, p] of w){ t += p; if (r < t) return k; } return w[w.length - 1][0]; }; // small ones first, bigger ones later in the game
   // small footprints, as in Mini Motorways: a block with a little lot; the big lots ('long', 'l') are kept only for old saves
-  if (time < 240) return pick([['m', 0.4], ['kiosk', 0.3], ['square', 0.3]]);
-  if (time < 600) return pick([['m', 0.36], ['kiosk', 0.2], ['square', 0.3], ['twin', 0.14]]);
-  return pick([['m', 0.32], ['kiosk', 0.14], ['square', 0.32], ['twin', 0.22]]); } // every building is square, as in Mini Motorways (the L-shaped 'corner' is kept for old saves)
+  // one building size for every shop, as in Mini Motorways: a 2×2 block with a one-cell strip of lot on one of its sides (which side,
+  // and which way the strip opens, comes from how it is turned); later on, now and then a double one
+  if (time < 600) return 'mm';
+  return pick([['mm', 0.85], ['twin', 0.15]]); } // every building is square, as in Mini Motorways (the L-shaped 'corner' is kept for old saves)
 function lanePt(b, u, v, out){ // a point on the in- or out-lane of the middle drive
   const F = DIRS[b.door], h = out ? F : [-F[0], -F[1]], p = shopPt(b, u, v); return [p[0] - h[1] * LANE, p[1] + h[0] * LANE]; }
 function shopPt(b, u, v){ const F = DIRS[b.door], R = DIRS[b.lat]; return [cx(b.i) + ((u - 1.5) * R[0] + (0.5 - v) * F[0]) * CELL, cy(b.i) + ((u - 1.5) * R[1] + (0.5 - v) * F[1]) * CELL]; }
@@ -444,7 +446,7 @@ const isTail = b => b.size === 'twinB';
 const shopHead = b => isTail(b) ? b.head : b;
 function unplaceShop(b){ if (b.twin && bld.has(b.twin.i) && !b.unplacing){ b.unplacing = true; unplaceShop(b.twin); } for (const x of b.cells) occ.delete(x); doors.delete(b.doorCell); if (hasEdge(b.i, b.doorCell)) delEdge(b.i, b.doorCell); bld.delete(b.i); for (const h of hws) shapeHw(h); }
 function place(i, type, color, want){
-  if (type === 'shop') return placeShop(i, color, quiet ? 'kiosk' : undefined);
+  if (type === 'shop') return placeShop(i, color, quiet ? 'mm' : undefined);
   const okW = want !== undefined && nb(i).some(([d, j]) => d === want && !water.has(j) && !mount.has(j) && !ringZone.has(j) && !occ.has(j) && !doors.has(j) && inPlay(j));
   const door = okW ? want : pickDoor(i); if (door < 0) return false;
   const b = { i, type, color, pins: 0, reserved: 0, overT: 0, t: 0, door, doorCell: nb(i).find(x => x[0] === door)[1] };
@@ -1255,7 +1257,7 @@ function stallBays(b){ // the painted lines between bays: for each bay two sides
     const pitch = same.length > 1 ? same[1] - same[0] : 0.46;
     for (const sgn of [-1, 1]){ const cx0 = us, cy0 = vs + pitch / 2 * sgn, key = Math.round(cx0 * 20) + ',' + Math.round(cy0 * 20); // shared with the next bay
       if (seen.has(key)) continue; seen.add(key);
-      out.push([cx0 - h[0] * 0.34, cy0 - h[1] * 0.34, cx0 + h[0] * 0.32, cy0 + h[1] * 0.32]); } }
+      const L0 = SHOP_TYPES[b.size].short ? 0.2 : 0.34; out.push([cx0 - h[0] * L0, cy0 - h[1] * L0, cx0 + h[0] * L0, cy0 + h[1] * L0]); } }
   return out; }
 function boxOf(b, u0, v0, u1, v1, pad){ const a = shopPt(b, u0, v0), c = shopPt(b, u1, v1);
   return [Math.min(a[0], c[0]) + pad, Math.min(a[1], c[1]) + pad, Math.abs(c[0] - a[0]) - pad * 2, Math.abs(c[1] - a[1]) - pad * 2]; }
