@@ -1395,19 +1395,17 @@ function roofChip(b, k, n){ const r = SHOP_TYPES[b.size].bld[0], B = boxOf(b, r[
 function pinPath(x, y, r){ // a map marker whose tip stands at (x, y + r)
   const cy0 = y - r * 0.35, a = Math.asin(0.55); ctx.beginPath(); ctx.moveTo(x, y + r * 1.05);
   ctx.arc(x, cy0, r, Math.PI / 2 + a, Math.PI / 2 - a + Math.PI * 2); ctx.closePath(); }
-function drawChip(x, y, r, color, dim){ // an order: a dark map marker with a white rim and a dot in the shop's colour
-  ctx.globalAlpha = dim ? 0.5 : 1;
+function drawChip(x, y, r, color, dim, a = 1){ // an order: a dark map marker with a white rim and a dot in the shop's colour
+  ctx.globalAlpha = (dim ? 0.5 : 1) * a;
   ctx.fillStyle = 'rgba(0,0,0,0.22)'; pinPath(x + 1.2, y + 1.4, r); ctx.fill();
   ctx.fillStyle = '#ffffff'; pinPath(x, y, r + 1.4); ctx.fill();
   ctx.fillStyle = '#2b2b33'; pinPath(x, y, r); ctx.fill();
   ctx.fillStyle = mixC(P.col[color], '#ffffff', 0.35); ctx.beginPath(); ctx.arc(x, y - r * 0.35, r * 0.42, 0, 7); ctx.fill();
   ctx.globalAlpha = 1; }
 let flies = [];
-function launchChip(s){ // the delivered order leaves the shop and flies up to the counter
+function launchChip(s){ // the delivered order swells and fades where it stood on the roof, then counts
   s = shopHead(s); const [x0, y0] = roofChip(s, s.pins, s.pins + 1);
-  const sc = $('score').getBoundingClientRect(), cr = cv.getBoundingClientRect();
-  const x1 = (sc.left + 14 - cr.left - offX) / scale, y1 = (sc.top + sc.height / 2 - cr.top - offY) / scale;
-  flies.push({ x0, y0, x1, y1, cx: (x0 + x1) / 2 + (x0 < x1 ? -40 : 40), cy: Math.min(y0, y1) - 60, t: 0, dur: 0.75, color: s.color }); }
+  flies.push({ x0, y0, t: 0, dur: 0.4, color: s.color }); }
 function stepFlies(dt){ for (const f of flies) f.t += dt;
   const done = flies.filter(f => f.t >= f.dur); if (done.length){ flies = flies.filter(f => f.t < f.dur); bumpScore();
     const shown = trips - flies.length; if (Math.floor(shown / 10) > Math.floor((shown - done.length) / 10)) sfx('chip10'); } } // a sound only on every tenth order
@@ -1515,10 +1513,9 @@ function draw(){
       ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(mx, my, rad, 0, 7); ctx.stroke();
       ctx.strokeStyle = P.warn; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(mx, my, rad, -Math.PI/2, -Math.PI/2 + (b.overT / T.overflow) * Math.PI * 2); ctx.stroke(); } }
   ctx.restore();
-  // order chips flying to the counter
-  for (const f of flies){ const t = Math.min(1, f.t / f.dur), e = t * t * (3 - 2 * t), u = 1 - e;
-    const x = u * u * f.x0 + 2 * u * e * f.cx + e * e * f.x1, y = u * u * f.y0 + 2 * u * e * f.cy + e * e * f.y1;
-    drawChip(x, y, CHIP_R + 4 * Math.sin(Math.PI * t), f.color, false); }
+  // delivered orders: the marker swells and fades in place
+  for (const f of flies){ const t = Math.min(1, f.t / f.dur), e = 1 - Math.pow(1 - t, 2);
+    drawChip(f.x0, f.y0, CHIP_R * (1 + 0.9 * e), f.color, false, 1 - t * t); }
 }
 
 // ---------- tools ----------
