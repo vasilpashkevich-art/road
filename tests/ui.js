@@ -29,7 +29,10 @@ const R=[]; const ok=(name,cond,info)=>{ R.push((cond?'OK  ':'FAIL')+' '+name+(i
  const P=i=>[box.x+g.offX+((i%g.cols)+0.5)*40*g.scale, box.y+g.offY+(Math.floor(i/g.cols)+0.5)*40*g.scale];
  const b0=+await ev('budget');
  const hc=g.h%g.cols, hr=Math.floor(g.h/g.cols), sc=g.s%g.cols, sr=Math.floor(g.s/g.cols);
- await p.mouse.move(...P(g.h)); await p.mouse.down(); await p.mouse.move(...P(hr*g.cols+sc),{steps:30}); await p.mouse.move(...P(g.s),{steps:30}); await p.mouse.up(); await p.waitForTimeout(200);
+ const route=JSON.parse(await ev(`(()=>{ const h=bld.get(${g.h}), t=${g.s}; const prev=new Map([[h.doorCell,-1]]), q=[h.doorCell]; // a way over open ground, the way a player would drag
+   for(let k=0;k<q.length;k++){ const u=q[k]; if(u===t) break; for(const [,v] of nb(u)) if(!prev.has(v) && !occ.has(v) && !water.has(v) && !mount.has(v) && inPlay(v) && (v===t || !doors.has(v))){ prev.set(v,u); q.push(v); } }
+   const out=[]; for(let u=t; u!==-1 && u!==undefined; u=prev.get(u)) out.unshift(u); return JSON.stringify(out); })()`));
+ await p.mouse.move(...P(g.h)); await p.mouse.down(); for(const c of route) await p.mouse.move(...P(c),{steps:6}); await p.mouse.up(); await p.waitForTimeout(200);
  const conn=await ev(`(()=>{const s=[...bld.values()].find(b=>b.type==='shop'); return !!bfsNodes(${g.h}, s)})()`);
  ok('mouse-drawn road connects house to shop', conn, {budgetUsed:b0-(+await ev('budget'))});
  // tool modes without stock
@@ -37,7 +40,7 @@ const R=[]; const ok=(name,cond,info)=>{ R.push((cond?'OK  ':'FAIL')+' '+name+(i
  await p.click('#tDraw');
  // erase: right-button drag along the road
  const e0=+await ev('[...E].reduce((n,[,v])=>n+v.size,0)');
- await p.mouse.move(...P(hr*g.cols+sc)); await p.mouse.down({button:'right'}); {const q=P(hr*g.cols+sc); await p.mouse.move(q[0]+3,q[1]+2,{steps:2});} await p.mouse.up({button:'right'}); await p.waitForTimeout(100);
+ await p.mouse.move(...P(route[Math.floor(route.length/2)])); await p.mouse.down({button:'right'}); {const q=P(route[Math.floor(route.length/2)]); await p.mouse.move(q[0]+3,q[1]+2,{steps:2});} await p.mouse.up({button:'right'}); await p.waitForTimeout(100);
  const e1=+await ev('[...E].reduce((n,[,v])=>n+v.size,0)');
  ok('right-click erases road', e1<e0, {e0,e1});
  // pause
