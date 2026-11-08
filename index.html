@@ -194,12 +194,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 const CELL = 40, H = CELL / 2;
 const LANE = CELL * 0.15, CAR_L = CELL * 0.40, CAR_W = CELL * 0.21; // two lanes never let passing cars touch
 const STOP = CAR_L / 2 + 2; // a waiting car keeps its whole body short of the crossing
-const VMAX = CELL * 2.2, ACC = CELL * 3, DEC = CELL * 9, MIN_GAP = CELL * 0.52, LOOK = CELL * 1.25, RING_R = CELL * 0.45, RING_DISC = CELL * 0.68, RING_ISLE = CELL * 0.28; // cars circle at RING_R; the white disc and the island around it
+const VMAX = CELL * 2.2, ACC = CELL * 4.5, DEC = CELL * 9, MIN_GAP = CELL * 0.5, LOOK = CELL * 0.9, RING_R = CELL * 0.45, RING_DISC = CELL * 0.68, RING_ISLE = CELL * 0.28; // cars circle at RING_R; the white disc and the island around it
 const WEEK = 60;
 // Pace of the city — every number that decides how fast pressure grows lives here.
 // Tuned on 32 autoplayer games (3×3 parking-lot shops, big roundabouts, zero body contacts): calm first ~8 min, loss around 9 min for the bot.
 const T = { startRoads: 25, weekRoads: 15, offerRoads: 12,
-  cross3: 0.45, cross4: 0.3, grow: 200, // speed share across a plain crossing
+  cross3: 0.7, cross4: 0.6, grow: 200, // speed share across a plain crossing
   pinBase: 8, pinRand: 4, ramp: 1100, rampFloor: 0.45, pinMax: 8, overflow: 22,
   house: 15, houseRand: 8, shop: 62, shopRand: 15, firstHouse: 10, firstShop: 30 };
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
@@ -914,9 +914,9 @@ function stepCar(car, dt){
   { // ease off before a bend or the roundabout and pick up again after it
     // a plain crossing (no light, no roundabout) is slow, as in Mini Motorways: cars creep across it; four ways are slower than three
     const crossV = g => g.cell >= 0 && jGroup.has(g.cell) && !rings.has(g.cell) && !hwOf.has(g.cell) && !lights.has(g.cell) && !doors.has(g.cell) ? VMAX * (linkCount(g.cell) >= 4 ? T.cross4 : T.cross3) : Infinity;
-    const bendV = g => Math.min(crossV(g), g.kind === 'curve' ? VMAX * 0.75 : (g.kind === 'poly' ? VMAX * 0.68 : Infinity));
+    const bendV = g => Math.min(crossV(g), g.kind === 'curve' ? VMAX * 0.85 : (g.kind === 'poly' ? VMAX * 0.8 : Infinity));
     vt = Math.min(vt, bendV(seg)); const nx = car.segs[car.si + 1];
-    if (nx){ const vb = bendV(nx); if (vb < Infinity) vt = Math.min(vt, Math.sqrt(vb * vb + 2 * CELL * 4 * Math.max(0, seg.len - car.s))); } }
+    if (nx){ const vb = bendV(nx); if (vb < Infinity) vt = Math.min(vt, Math.sqrt(vb * vb + 2 * CELL * 8 * Math.max(0, seg.len - car.s))); } }
   if (car.ghost > 0) car.ghost -= dt;
   else {
     const gap = gapAhead(car, seg); car.gap = gap;
