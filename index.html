@@ -467,11 +467,11 @@ function besideHouse(h){ // a free cell right next to h (not its driveway); side
   const free = (j, e) => nb(j).some(([d, k]) => d === e && !occ.has(k) && !doors.has(k) && !water.has(k) && !mount.has(k) && inPlay(k));
   const cand = nb(h.i).filter(([d, j]) => j !== h.doorCell && canHouse(j)).map(([d, j]) => [j, free(j, h.door) ? 0 : 1 + Math.random()]);
   cand.sort((a, b) => a[1] - b[1] + (Math.random() - 0.5) * 0.4); return cand.length ? cand[0][0] : -1; }
-function farSpot(c, shops){ // a new neighbourhood somewhere else in town, well away from its own shops, so its roads have to cross the others
+function farSpot(c, shops, dMin = 6, dMax = 12){ // a new neighbourhood somewhere else in town, well away from its own shops, so its roads have to cross the others
   const cand = [];
   for (let r = area.r0; r < area.r1; r++) for (let cc = area.c0; cc < area.c1; cc++){ const i = idx(cc, r); if (!canHouse(i)) continue;
     let near = 0; for (let ec = -1; ec <= 1; ec++) for (let er = -1; er <= 1; er++) if (inb(cc + ec, r + er) && occ.has(idx(cc + ec, r + er))) near++; if (near) continue;
-    const d = Math.min(99, ...shops.map(s0 => Math.max(Math.abs(col_(s0.doorCell) - cc), Math.abs(row_(s0.doorCell) - r)))); if (d < 6) continue;
+    const d = Math.min(99, ...shops.map(s0 => Math.max(Math.abs(col_(s0.doorCell) - cc), Math.abs(row_(s0.doorCell) - r)))); if (d < dMin || d > dMax) continue;
     // better still: across the river from its shop, or behind houses of other colours, so the road has to find a way through
     let w = 1; const sh0 = shops[0]; if (sh0 && water.size && landSteps(sh0.doorCell, i, 40) === Infinity) w += 2;
     for (let ec = -3; ec <= 3; ec++) for (let er = -3; er <= 3; er++){ const o = inb(cc + ec, r + er) ? occ.get(idx(cc + ec, r + er)) : null; if (o && o.color !== c){ w += 0.4; } }
@@ -480,7 +480,7 @@ function farSpot(c, shops){ // a new neighbourhood somewhere else in town, well 
   for (const q of cand){ r0 -= q[1]; if (r0 <= 0) return q[0]; } return cand[cand.length - 1][0]; }
 function newClusterSpot(c){ // usually a few cells from a shop of this colour; about half the time somewhere far off instead, as in Mini Motorways
   const shops = [...bld.values()].filter(b => b.type === 'shop' && b.color === c); if (!shops.length) return freeSpot();
-  if (Math.random() < 0.5 && time > 60){ const f = farSpot(c, shops); if (f >= 0) return f; }
+  if (Math.random() < 0.25 && time > 180){ const f = farSpot(c, shops, 6, 10); if (f >= 0) return f; }
   const sh = shops[Math.floor(Math.random() * shops.length)], c0 = col_(sh.doorCell), r0 = row_(sh.doorCell), cand = [];
   for (let dc = -6; dc <= 6; dc++) for (let dr = -6; dr <= 6; dr++){ const d = Math.max(Math.abs(dc), Math.abs(dr)); if (d < 2 || d > 5 || !inb(c0 + dc, r0 + dr)) continue; const i = idx(c0 + dc, r0 + dr);
     if (!canHouse(i)) continue; let near = 0; for (let ec = -1; ec <= 1; ec++) for (let er = -1; er <= 1; er++) if (inb(c0 + dc + ec, r0 + dr + er) && occ.has(idx(c0 + dc + ec, r0 + dr + er))) near++;
@@ -1085,8 +1085,8 @@ function tick(dt){
     for (let t = 0; t < 8 && !done; t++){ const i = freeSpot(); if (i < 0 || !place(i, 'shop', c)) continue;
       // a shop comes alone, as in Mini Motorways; only a new colour brings a pair of its houses, and they turn up somewhere else in town
       const sb = [...bld.values()].pop();
-      if (fresh){ const h1 = farSpot(c, [sb]) >= 0 ? farSpot(c, [sb]) : spotNear(sb.i); if (h1 < 0){ unplaceShop(sb); continue; }
-        quiet = true; place(h1, 'house', c); const hb = bld.get(h1), h2 = hb ? besideHouse(hb) : -1; if (h2 >= 0) place(h2, 'house', c, hb.door); quiet = false; colorsInPlay++; }
+      { const f1 = farSpot(c, [sb], 3, 5), h1 = f1 >= 0 ? f1 : spotNear(sb.i); if (h1 < 0){ unplaceShop(sb); continue; } // every shop brings a pair of its houses, a few blocks away (not next door)
+        quiet = true; place(h1, 'house', c); const hb = bld.get(h1), h2 = hb ? besideHouse(hb) : -1; if (h2 >= 0) place(h2, 'house', c, hb.door); quiet = false; if (fresh) colorsInPlay++; }
       sfx('shop'); done = true; }
     spawnShopT = done ? T.shop + Math.random() * T.shopRand : 3; }
   buildGroups(); stepLights(dt); stepDying(); dispatch(dt);
