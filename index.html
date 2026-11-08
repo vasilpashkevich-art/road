@@ -179,9 +179,21 @@ function readPalette(){
         win:g('--win'), shadow:g('--shadow'), pin:g('--pin'), pinEdge:g('--pin-edge'), warn:g('--warn'), accent:g('--accent'), lampGo:g('--lamp-go'), lampStop:g('--lamp-stop'), lampRing:g('--lamp-ring'), grid:g('--grid'),
         col:[g('--c0'),g('--c1'),g('--c2'),g('--c3')], dark:[g('--c0d'),g('--c1d'),g('--c2d'),g('--c3d')] };
 }
+// Each map has its own ground colour, as each city does in Mini Motorways: the buildings and roads keep theirs.
+const TINT = {
+  minsk:    { light: ['#e8efe3', '#dbe4d4', '#d9e6cf', '#eef0df', '#e3dbbd'], dark: ['#222a25', '#1a201c', '#253029', '#272a24', '#3a3a30'] },
+  bobruisk: { light: ['#f4ecd2', '#e9ddb9', '#e8e6c4', '#f5e5c3', '#e8d4a2'], dark: ['#2a2720', '#211e18', '#2c2c22', '#2e2a21', '#3d3829'] },
+  lake:     { light: ['#e5eef1', '#d6e2e7', '#d9e8e0', '#ebebe3', '#e6ddc2'], dark: ['#202a2e', '#182125', '#213029', '#25292b', '#363830'] },
+  hills:    { light: ['#f4e2d3', '#e9cfbc', '#e8dfca', '#f5dbc6', '#e9d0ad'], dark: ['#2d2420', '#241c18', '#2c2a22', '#30251f', '#3d3229'] },
+  random:   { light: ['#f4e7e7', '#e9d5d6', '#e9e3da', '#f5e1dc', '#e7d6c2'], dark: ['#2c2427', '#231c1f', '#2a2a25', '#2f2527', '#3b3330'] } };
+function applyTint(){ const t = TINT[mapId], root = document.documentElement, st = root.style;
+  const dark = root.dataset.theme === 'dark' || (root.dataset.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+  const v = t && t[dark ? 'dark' : 'light'];
+  for (const [k, n] of [['--ground', 0], ['--bg', 1], ['--meadow', 2], ['--warm', 3], ['--sand', 4]]) v ? st.setProperty(k, v[n]) : st.removeProperty(k);
+  readPalette(); }
 readPalette();
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readPalette);
-new MutationObserver(readPalette).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTint);
+new MutationObserver(applyTint).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
 
 // ---------- grid helpers ----------
 const DIRS = [[0,-1],[1,0],[0,1],[-1,0]];
@@ -296,7 +308,7 @@ function reset(){
   bld = new Map(); cars = []; locks = new Map();
   time = 0; trips = 0; over = false; spawnHouseT = T.firstHouse; spawnShopT = T.firstShop; colorsInPlay = 1;
   budget = T.startRoads; bridgesN = MAPS[mapId].bridges; tunnelsN = MAPS[mapId].tunnels || 0; ringN = 0; hwN = 0; weekT = WEEK; week = 1; hwStart = -1;
-  buildWater(); buildTerrain(); waterImg = null; startArea();
+  buildWater(); buildTerrain(); waterImg = null; applyTint(); startArea();
   $('over').hidden = true; $('weekBox').hidden = true; choosing = false; setPaused(false); setMode('draw');
   // the first shop near the middle on dry land, with two houses on its own bank
   const mc = Math.floor(cols / 2), mr = Math.floor(rows / 2);
@@ -1043,7 +1055,7 @@ function bakeWater(){
     if (bil(a, x / f, y / f) < 0.85) continue; const L = 5 + rnd() * 6;
     g.beginPath(); g.moveTo(x - L, y); g.quadraticCurveTo(x - L / 2, y - 2.2, x, y); g.quadraticCurveTo(x + L / 2, y + 2.2, x + L, y); g.stroke(); }
   g.restore();
-  waterImg = can; waterTheme = P.water + mount.size; }
+  waterImg = can; waterTheme = P.water + P.ground + mount.size; }
 const inTunnel = car => { const g = car.segs[car.si]; return g && g.cell >= 0 && mount.has(g.cell); };
 function drawTunnels(){ // a dark mouth with a stone arch where a road goes into the mountain
   for (const [i] of tunnelOf) for (const j of eOf(i)){ if (mount.has(j)) continue; const d = dir8(i, j), e = mid(i, d), a = Math.atan2(D8[d][1], D8[d][0]);
@@ -1060,7 +1072,7 @@ function drawTrees(){ // round crowns with a shadow, two or three to a cell, set
       ctx.fillStyle = P.treeDk; ctx.beginPath(); ctx.arc(x, y + 1.5, r, 0, 7); ctx.fill();
       ctx.fillStyle = P.tree; ctx.beginPath(); ctx.arc(x - r * 0.12, y - r * 0.1, r * 0.82, 0, 7); ctx.fill(); } } }
 function drawWater(){
-  if (!waterImg || waterTheme !== P.water + mount.size) bakeWater();
+  if (!waterImg || waterTheme !== P.water + P.ground + mount.size) bakeWater();
   ctx.imageSmoothingEnabled = true; ctx.drawImage(waterImg, 0, 0, cols * CELL, rows * CELL); }
 function hwPath(h, f){ ctx.beginPath(); h.smp.forEach((q, n) => { const p = f(q); n ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); }); }
 function drawHwShadow(h){
@@ -1107,7 +1119,8 @@ function drawShop(b, colr, dk, e){
   const T0 = SHOP_TYPES[b.size], [lu0, lv0, lu1, lv1] = T0.lot;
   ctx.save(); const C = shopCenter(b); ctx.translate(C[0], C[1]); ctx.scale(e, e); ctx.translate(-C[0], -C[1]);
   // parking lot: white pad, bay lines off the drive
-  const D = b.depth, L = boxOf(b, lu0, lv0, lu1, lv1 + 0.02, 3);
+  const D = b.depth, L = joinedBox(b, T0.lot, T0.bld, 0.12); // runs on under the building's wall
+  { const H = shopH(b); ctx.fillStyle = P.shadow; for (const r of T0.bld){ const B = joinedBox(b, r, [T0.lot], 0); rr(B[0] + H * 0.7, B[1] + H * 0.5, B[2], B[3], 8); ctx.fill(); } } // the building's shadow falls on the ground, under the lot
   ctx.fillStyle = P.road; rr(L[0], L[1], L[2], L[3], 9); ctx.fill();
   ctx.strokeStyle = colr; ctx.globalAlpha = 0.5; ctx.lineWidth = 2.5; rr(L[0] + 1.2, L[1] + 1.2, L[2] - 2.4, L[3] - 2.4, 8); ctx.stroke();
   ctx.globalAlpha = 1; const g0 = shopPt(b, 1.5, 0); ctx.fillStyle = P.road; ctx.beginPath(); ctx.arc(g0[0], g0[1], CELL * 0.26, 0, 7); ctx.fill(); // gap where the drive opens
@@ -1121,6 +1134,15 @@ function drawShop(b, colr, dk, e){
 // The shop building: about twice as tall as a house. The roof is lifted by SHOP_H, the front wall shows below it,
 // and it is drawn after the ground cars, so a tall roof covers what stands right behind it.
 const SHOP_H = 11;
+// The lot and the building meet edge to edge: on the side where they touch the lot runs on under the wall and the building has no margin,
+// so the shop reads as one block. pads: inset in cells for the sides u0, v0, u1, v1.
+const PADC = 3 / CELL;
+function touchSides(a, r){ const ov = (x0, x1, y0, y1) => Math.min(x1, y1) - Math.max(x0, y0) > 0.01; // which sides of rect a touch rect r
+  return [Math.abs(a[0] - r[2]) < 0.01 && ov(a[1], a[3], r[1], r[3]), Math.abs(a[1] - r[3]) < 0.01 && ov(a[0], a[2], r[0], r[2]),
+          Math.abs(a[2] - r[0]) < 0.01 && ov(a[1], a[3], r[1], r[3]), Math.abs(a[3] - r[1]) < 0.01 && ov(a[0], a[2], r[0], r[2])]; }
+function joinedBox(b, rect, others, into){ const t = [false, false, false, false]; for (const r of others){ const k = touchSides(rect, r); for (let n = 0; n < 4; n++) t[n] = t[n] || k[n]; }
+  const p = t.map(x => x ? -into : PADC); return boxOf(b, rect[0] + p[0], rect[1] + p[1], rect[2] - p[2], rect[3] - p[3], 0); }
+const shopH = b => { const g01 = b.lvl ? Math.min(1, (b.growT || 9) / 0.6) : 0; return (b.size === 'square' ? SHOP_H + 2 : SHOP_H) + 6 * (1 - Math.pow(1 - g01, 3)); }; // a grown shop gets a floor more
 function shopCenter(b){ const T0 = SHOP_TYPES[b.size]; let u0 = 9, v0 = 9, u1 = -9, v1 = -9;
   for (const r of [T0.lot, ...T0.bld]){ u0 = Math.min(u0, r[0]); v0 = Math.min(v0, r[1]); u1 = Math.max(u1, r[2]); v1 = Math.max(v1, r[3]); }
   return shopPt(b, (u0 + u1) / 2, (v0 + v1) / 2); }
@@ -1128,8 +1150,7 @@ function roofMid(b){ const r = SHOP_TYPES[b.size].bld[0]; return shopPt(b, (r[0]
 function drawShopBody(b){
   const colr = P.col[b.color], dk = P.dark[b.color], pop = Math.min(1, b.t / 0.35), e = 1 - Math.pow(1 - pop, 3);
   ctx.save(); const C = shopCenter(b); ctx.translate(C[0], C[1]); ctx.scale(e, e); ctx.translate(-C[0], -C[1]);
-  const Bs = SHOP_TYPES[b.size].bld.map(r => boxOf(b, r[0], r[1], r[2], r[3], 3)), g01 = b.lvl ? Math.min(1, (b.growT || 9) / 0.6) : 0, H = (b.size === 'square' ? SHOP_H + 2 : SHOP_H) + 6 * (1 - Math.pow(1 - g01, 3)); // a grown shop gets a floor more
-  ctx.fillStyle = P.shadow; for (const B of Bs){ rr(B[0] + H * 0.7, B[1] + H * 0.5, B[2], B[3], 8); ctx.fill(); }
+  const Bs = SHOP_TYPES[b.size].bld.map(r => joinedBox(b, r, [SHOP_TYPES[b.size].lot], 0)), H = shopH(b);
   ctx.fillStyle = dk; for (const B of Bs){ rr(B[0], B[1] - H, B[2], B[3] + H, 8); ctx.fill(); }
   ctx.fillStyle = 'rgba(255,255,255,0.12)'; for (const B of Bs){ const n = Math.max(2, Math.round(B[2] / 20)); for (let k = 1; k < n; k++){ const x = B[0] + B[2] * k / n; ctx.fillRect(x - 0.6, B[1] + B[3] - H + 1, 1.2, H - 3); } } // wall panels
   ctx.fillStyle = colr; for (const B of Bs){ rr(B[0], B[1] - H, B[2], B[3], 8); ctx.fill(); }
@@ -1467,7 +1488,7 @@ const plural = (n, a, b, c) => { const m = n % 10, h = n % 100; return m === 1 &
 function hasSave(){ try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
 function drawMini(c, id){ // a little picture of the map: its water, a shop and a few houses
   const x = c.getContext('2d'), w = c.width, h = c.height, keep = { mapId, water, cols, rows, mount, trees };
-  x.fillStyle = P.ground; x.fillRect(0, 0, w, h);
+  { const root = document.documentElement, dark = root.dataset.theme === 'dark' || (root.dataset.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches); x.fillStyle = TINT[id] ? TINT[id][dark ? 'dark' : 'light'][0] : P.ground; } x.fillRect(0, 0, w, h); // the map's own ground colour
   mapId = id; cols = FULL[0]; rows = FULL[1]; if (id !== 'random') buildWater();
   const cw = w / cols, ch = h / rows; x.fillStyle = P.water;
   if (id === 'random'){ x.strokeStyle = P.water; x.lineWidth = 12; x.lineCap = 'round'; x.beginPath(); x.moveTo(w * 0.74, -6); x.quadraticCurveTo(w * 0.64, h * 0.45, w * 0.78, h + 6); x.stroke(); }
@@ -1609,7 +1630,7 @@ function deserialize(d){
   quiet = true; reset(); // clean slate, then rebuild the saved city on it
   mapId = MAPS[d.map] ? d.map : 'random';
   cols = d.cols; rows = d.rows; bld.clear(); occ.clear(); doors.clear(); cars = [];
-  water = new Set(d.water); riverChain = d.river || []; waterImg = null;
+  water = new Set(d.water); riverChain = d.river || []; waterImg = null; applyTint();
   if (d.mount){ mount = new Set(d.mount); trees = new Map(d.trees || []); } else buildTerrain(); tunnelOf = new Map(d.tunnels || []); tunnelSeq = d.tunnelSeq || 0;
   area = d.area ? { ...d.area } : { c0: 0, r0: 0, c1: cols, r1: rows }; view = null;
   for (const b of d.blds){
