@@ -824,7 +824,13 @@ function validLink(car, k){
 // The network changed under a driving car (a new road, a roundabout, a highway, a road taken away):
 // it looks again for the best way from the cell it is in and slides onto the new line there, without a jump.
 function rebase(car){
-  const g = car.segs[car.si]; if (!g || g.kind === 'hw' || g.cell < 0 || rings.has(g.cell) || ringZone.has(g.cell)) return;
+  const g0 = car.segs[car.si];
+  if (g0 && g0.kind === 'hw'){ // on a highway that was bent: same trip, the deck under the car has a new shape; keep the same share of the way along it
+    const frac = Math.min(1, car.s / g0.len), segs = buildGeom(car.path);
+    if (segs.length === car.segs.length && segs[car.si] && segs[car.si].kind === 'hw'){ const ng = segs[car.si], q = samp(ng, frac);
+      car.ox = (car.ox || 0) + car.x - q[0]; car.oy = (car.oy || 0) + car.y - q[1]; car.segs = segs; car.s = frac * ng.len; car.x = q[0]; car.y = q[1]; }
+    return; }
+  const g = g0; if (!g || g.kind === 'hw' || g.cell < 0 || rings.has(g.cell) || ringZone.has(g.cell)) return;
   const k = g.node, i = car.path[k], prev = k > 0 ? car.path[k - 1] : -1, tb = car.back ? car.home : car.target;
   if (k >= car.path.length - 2 || !tb || !bld.has(tb.i) || prev < 0 || !hasEdge(prev, i)) return;
   const np = bfsNodes(i, tb); if (!np) return;
