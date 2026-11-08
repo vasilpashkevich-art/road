@@ -245,6 +245,16 @@ const pathOk = p => !!p && p.every((x, k) => k === 0 || adj8(p[k - 1], x) || (hw
 const adj8 = (a, b) => a !== b && Math.max(Math.abs(col_(a) - col_(b)), Math.abs(row_(a) - row_(b))) === 1;
 const dir8 = (a, b) => { const dc = col_(b) - col_(a), dr = row_(b) - row_(a); return D8.findIndex(v => v[0] === dc && v[1] === dr); };
 const mid = (i, d) => [cx(i) + D8[d][0] * H, cy(i) + D8[d][1] * H];
+// Smooth corners: a plain bend between two plain straight pieces is drawn (and driven) as one wide curve from the middle of one straight cell
+// to the middle of the other, instead of a tight turn inside its own cell.
+const liveNb = i => [...eOf(i)].filter(j => !dying.has(ekey(i, j)));
+const plainCell = i => roads.has(i) && !bld.has(i) && !bridgeOf.has(i) && !water.has(i) && !mount.has(i) && !hwOf.has(i) && !rings.has(i) && !ringZone.has(i) && !lights.has(i) && !doors.has(i);
+function straightCell(n){ const l = liveNb(n); return plainCell(n) && l.length === 2 && adj8(n, l[0]) && adj8(n, l[1]) && dir8(n, l[0]) === OPP8(dir8(n, l[1])); }
+function bendCell(i){ const l = liveNb(i); return l.length === 2 && adj8(i, l[0]) && adj8(i, l[1]) && dir8(i, l[0]) !== OPP8(dir8(i, l[1])); }
+function smoothCorner(i){ if (!plainCell(i) || !bendCell(i)) return null; const l = liveNb(i);
+  for (const n of l){ if (!straightCell(n)) return null; const far = at8(n, dir8(i, n)); if (far >= 0 && bendCell(far)) return null; } // the straight cell belongs to this bend alone
+  return l; }
+const smoothNext = (n, i) => !!smoothCorner(i) && liveNb(i).includes(n);
 const d4to8 = d => d * 2;
 const eOf = i => E.get(i) || EMPTY; const EMPTY = new Set();
 const hasEdge = (a, b) => eOf(a).has(b);
@@ -632,7 +642,8 @@ function buildGeom(path){
     const C = [cx(i), cy(i)];
     if (din >= 0 && dout >= 0){
       if (rings.has(i)) segs.push(ringSeg(i, din, dout, k));
-      else if (din === OPP8(dout)) segs.push(mk('line', mid(i, din), null, mid(i, dout), k, i));
+      else if (din === OPP8(dout)){ const a = smoothNext(i, prev) ? C : mid(i, din), b = smoothNext(i, next) ? C : mid(i, dout); segs.push(mk('line', a, null, b, k, i)); }
+      else if (smoothCorner(i) && k >= 1 && k + 1 < path.length && smoothCorner(i).includes(prev) && smoothCorner(i).includes(next)) segs.push(mk('curve', [cx(prev), cy(prev)], C, [cx(next), cy(next)], k, i));
       else segs.push(mk('curve', mid(i, din), C, mid(i, dout), k, i));
     } else if (din >= 0) segs.push(mk('line', mid(i, din), null, C, k, i));
     else if (dout >= 0) segs.push(mk('line', C, null, mid(i, dout), k, i));
@@ -735,6 +746,10 @@ function lockFull(cell, car){
   const s = locks.get(g); const occ = [];
   if (s) for (const o of s) if (o !== car && o.phase === 'go' && o.lock === g && !(car.fromShop && o.target === car.fromShop && !o.back)) occ.push(o); // the queue for the lot we just left waits on the other lane
   if (occ.length >= (jCap.get(g) === 3 ? 3 : 4)) return true;
+  // One simple rule: first come, first served. A car that stopped at this crossing earlier and can go goes first; the rest wait for it.
+  if (car.queueG === g) for (const o of cars){ if (o === car || o.phase !== 'go' || o.waitG !== g || o.queueG !== g || !(o.waitAt < car.waitAt - 1e-6)) continue;
+    const on = o.segs[o.si + 1]; if (!on || lightStops(on.cell, o) || exitBlocked(o, g)) continue; // an earlier car that cannot move anyway does not hold up the rest
+    return true; }
   if (car.stuck >= 5) return false; // long wait: go as soon as there is physical room
   if (occ.length){ // several cars at once only if their ways never come close; on a ring only the merge has to be clear
     const ring = jCap.get(g) === 3, all = wayPts(car, car.si + 1, g), mine = ring ? all.slice(0, 3) : all, lim = CAR_W * 1.7;
@@ -886,6 +901,7 @@ function stepCar(car, dt){
     car.waitG = -1;
     if (nx && nx.cell >= 0 && nx.cell !== seg.cell && (lotFull(car, car.si + 1) || lockFull(nx.cell, car))){ blocked = true; vt = Math.min(vt, Math.max(0, seg.len - STOP - car.s) * 5);
       car.waitG = jGroup.has(nx.cell) ? jGroup.get(nx.cell) : -1; }
+    if (car.waitG !== car.queueG){ car.queueG = car.waitG; car.waitAt = time; } // when this car joined the queue for the crossing
   }
   const dv = vt - car.v; car.v += Math.max(-DEC * dt, Math.min(ACC * dt, dv));
   
@@ -1091,7 +1107,10 @@ function strokeCell(i){
   const nb2 = [...eOf(i)].filter(j => !dying.has(ekey(i, j))), n = nb2.map(j => dir8(i, j)), C = [cx(i), cy(i)];
   const tip = (k) => { const e = mid(i, n[k]), f = growOf(i, nb2[k]); return [C[0] + (e[0] - C[0]) * f, C[1] + (e[1] - C[1]) * f]; };
   ctx.beginPath();
-  if (n.length === 2 && n[0] !== OPP8(n[1])){ const a = tip(0), b = tip(1); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo(C[0], C[1], b[0], b[1]); }
+  const sc = smoothCorner(i);
+  if (sc && nb2.length === 2 && growOf(i, nb2[0]) >= 1 && growOf(i, nb2[1]) >= 1){ ctx.moveTo(cx(sc[0]), cy(sc[0])); ctx.quadraticCurveTo(C[0], C[1], cx(sc[1]), cy(sc[1])); }
+  else if (n.length === 2 && n[0] === OPP8(n[1]) && (smoothNext(i, nb2[0]) || smoothNext(i, nb2[1]))){ const k = smoothNext(i, nb2[0]) ? 1 : 0, e = tip(k); ctx.moveTo(C[0], C[1]); ctx.lineTo(e[0], e[1]); } // only the half away from the bend
+  else if (n.length === 2 && n[0] !== OPP8(n[1])){ const a = tip(0), b = tip(1); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo(C[0], C[1], b[0], b[1]); }
   else if (n.length === 0){ ctx.moveTo(C[0], C[1]); ctx.lineTo(C[0] + 0.01, C[1]); }
   else { for (let k = 0; k < n.length; k++){ const e = tip(k); ctx.moveTo(C[0], C[1]); ctx.lineTo(e[0], e[1]); }
     // a crossing gets rounded inside corners too: neighbouring arms (45° or 90° apart) are joined by a curve, so no square corner is left
