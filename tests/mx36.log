@@ -1,0 +1,25 @@
+norm minsk: games 6 median 9:19 min 5:30 max 10:35 survived 0 pin5 523 pin8 542 stop 19 budget 85 ghost 0 bridgeShort 0
+norm random: games 6 median 10:17 min 7:29 max 11:42 survived 0 pin5 565 pin8 609 stop 24 budget 96 ghost 0 bridgeShort 0
+norm bobruisk: games 6 median 9:56 min 8:24 max 11:07 survived 0 pin5 546 pin8 563 stop 22 budget 84 ghost 0 bridgeShort 0
+norm lake: games 6 median 10:20 min 9:27 max 11:30 survived 0 pin5 569 pin8 596 stop 33 budget 101 ghost 0 bridgeShort 11
+norm hills: games 6 median 9:19 min 8:03 max 10:12 survived 0 pin5 492 pin8 518 stop 18 budget 87 ghost 0 bridgeShort 0
+norm tokyo: games 6 median 10:06 min 5:15 max 13:02 survived 0 pin5 545 pin8 623 stop 28 budget 99 ghost 0 bridgeShort 0
+chaos minsk: games 4 median 9:37 min 7:28 max 9:52 survived 0 pin5 526 pin8 548 stop 24 budget 64 ghost 0 bridgeShort 0
+cycle minsk: games 4 median 7:29 min 6:05 max 12:21 survived 0 pin5 355 pin8 612 stop 10 budget 80 ghost 0 bridgeShort 0
+chaos random: games 4 median 9:14 min 5:19 max 10:04 survived 0 pin5 480 pin8 515 stop 18 budget 69 ghost 0 bridgeShort 0
+cycle random: games 4 median 8:06 min 5:41 max 10:00 survived 0 pin5 450 pin8 464 stop 15 budget 84 ghost 0 bridgeShort 0
+chaos bobruisk: games 4 median 9:32 min 9:03 max 9:32 survived 0 pin5 535 pin8 550 stop 20 budget 75 ghost 0 bridgeShort 2
+cycle bobruisk: games 4 median 10:24 min 9:07 max 13:23 survived 0 pin5 539 pin8 584 stop 38 budget 83 ghost 0 bridgeShort 1
+chaos lake: games 4 median 10:39 min 7:20 max 10:45 survived 0 pin5 559 pin8 586 stop 27 budget 69 ghost 0 bridgeShort 0
+cycle lake: games 4 median 7:31 min 3:47 max 8:45 survived 0 pin5 403 pin8 492 stop 17 budget 52 ghost 0 bridgeShort 85
+chaos hills: games 4 median 10:34 min 7:12 max 10:34 survived 0 pin5 523 pin8 612 stop 26 budget 53 ghost 0 bridgeShort 0
+cycle hills: games 4 median 10:21 min 7:46 max 10:53 survived 0 pin5 556 pin8 599 stop 30 budget 76 ghost 0 bridgeShort 1
+chaos tokyo: games 4 median 10:03 min 9:24 max 10:08 survived 0 pin5 562 pin8 581 stop 28 budget 83 ghost 0 bridgeShort 0
+cycle tokyo: games 4 median 10:15 min 7:43 max 12:25 survived 0 pin5 557 pin8 618 stop 27 budget 117 ghost 0 bridgeShort 0
+long minsk: games 2 median 25:00 min 25:00 max 25:00 survived 2 pin5 592 pin8 634 stop 110 budget 262 ghost 0 bridgeShort 1758
+long random: games 2 median 25:00 min 25:00 max 25:00 survived 2 pin5 557 pin8 604 stop 126 budget 328 ghost 0 bridgeShort 1
+long bobruisk: games 2 median 25:00 min 25:00 max 25:00 survived 2 pin5 589 pin8 605 stop 129 budget 327 ghost 0 bridgeShort 556
+long lake: games 2 median 25:00 min 25:00 max 25:00 survived 2 pin5 544 pin8 580 stop 101 budget 307 ghost 0 bridgeShort 1144
+long hills: games 2 median 25:00 min 25:00 max 25:00 survived 2 pin5 560 pin8 613 stop 131 budget 270 ghost 0 bridgeShort 0
+long tokyo: games 2 median 25:00 min 25:00 max 25:00 survived 2 pin5 507 pin8 553 stop 122 budget 332 ghost 0 bridgeShort 2984
+DONE
