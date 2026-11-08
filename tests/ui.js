@@ -11,6 +11,10 @@ const R=[]; const ok=(name,cond,info)=>{ R.push((cond?'OK  ':'FAIL')+' '+name+(i
  ok('menu open on first visit', await p.isVisible('#menu'));
  ok('no Continue on first visit', !(await p.isVisible('#contBtn')));
  ok('5 map cards', (await p.locator('#maps button').count())===5, await p.locator('#maps button').count());
+ ok('2 maps locked at first', (await p.locator('#maps button.locked').count())===2 && (await p.locator('#maps button:disabled').count())===2);
+ // a record of 350 opens the rest
+ await p.evaluate(()=>localStorage.setItem('dorozhki-best-minsk','350')); await ev('(buildMenuMaps(),0)');
+ ok('all maps open at 350', (await p.locator('#maps button.locked').count())===0);
  // pick each map
  for (let k=0;k<5;k++){ await p.locator('#maps button').nth(k).click(); await p.waitForTimeout(250);
    const st=JSON.parse(await ev(`JSON.stringify({menu:menuOpen,map:mapId,shops:[...bld.values()].filter(b=>b.type==='shop').length,houses:[...bld.values()].filter(b=>b.type==='house').length,tut:!!tut,water:water.size})`));
@@ -41,9 +45,9 @@ const R=[]; const ok=(name,cond,info)=>{ R.push((cond?'OK  ':'FAIL')+' '+name+(i
  await p.keyboard.press('Space'); ok('space pauses', await ev('paused')===true); await p.keyboard.press('Space');
  // week offer
  await ev('weekT=0.05; 0'); await p.waitForTimeout(400); ok('week offer shown', await p.isVisible('#weekBox'));
- const before=JSON.parse(await ev('JSON.stringify({ringN,hwN,bridgesN,lightN,budget})'));
+ const before=JSON.parse(await ev('JSON.stringify({ringN,hwN,bridgesN,lightN,tunnelsN,budget})'));
  await p.locator('#offers button').first().click(); await p.waitForTimeout(150);
- const after=JSON.parse(await ev('JSON.stringify({ringN,hwN,bridgesN,lightN,budget})'));
+ const after=JSON.parse(await ev('JSON.stringify({ringN,hwN,bridgesN,lightN,tunnelsN,budget})'));
  ok('offer pick adds stock', JSON.stringify(before)!==JSON.stringify(after) && !(await p.isVisible('#weekBox')), {before,after});
  // zoom buttons and wheel
  await p.click('#zIn'); ok('zoom in button', (+await ev('uz'))>1.3); await p.click('#zOut'); await p.waitForTimeout(80); ok('zOut disabled at 1', await p.isDisabled('#zOut')); ok('zoom out to 1', Math.abs(+await ev('uz')-1)<0.01);
@@ -58,6 +62,8 @@ const R=[]; const ok=(name,cond,info)=>{ R.push((cond?'OK  ':'FAIL')+' '+name+(i
  // game over
  await ev(`(()=>{const s=[...bld.values()].find(b=>b.type==='shop'); s.pins=T.pinMax; s.overT=T.overflow-0.1; return 0})()`); await p.waitForTimeout(600);
  ok('game over card', await p.isVisible('#over'));
+ { const o=JSON.parse(await ev(`JSON.stringify({src:$('overShot').src.length, stats:$('overStats').children.length, cause:$('overCause').textContent, n:$('overTrips').textContent, best:$('overBest').textContent})`));
+   ok('game over: picture, stats, cause', o.src>2000 && o.stats===4 && /магазин/.test(o.cause) && o.n!=='' && o.best!=='', o); await p.screenshot({path:path.join(__dirname,'shots','over.png')}); }
  await p.click('#againBtn'); await p.waitForTimeout(300); ok('again restarts', !(await p.isVisible('#over')) && (+await ev('time'))<2);
  // sound toggle
  const s0=await ev('soundOn'); await p.click('#soundBtn'); ok('sound toggle', (await ev('soundOn'))!==s0); await p.click('#soundBtn');

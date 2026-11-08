@@ -89,6 +89,26 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 .map canvas{position:static;display:block;width:100%;height:auto;margin-bottom:6px}
 .mname{font-weight:800;font-size:15px;padding:0 12px;color:var(--fg)}
 .mdesc{font-weight:600;font-size:13px;padding:0 12px;color:var(--muted)}
+.map.locked{border-style:dashed;border-color:var(--panel-edge);cursor:default}
+.map.locked canvas{filter:grayscale(1) opacity(.45)}
+.map.locked .mname svg{width:13px;height:15px;margin-right:6px;vertical-align:-2px;fill:none;stroke:var(--muted);stroke-width:2.2;stroke-linecap:round}
+.mlock{font-weight:700;font-size:12.5px;padding:2px 12px 0;color:var(--fg)}
+.mbar{height:5px;margin:4px 12px 0;border-radius:3px;background:var(--panel-edge);overflow:hidden}
+.mbar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.over .ocard{background:var(--card);max-width:380px;width:100%;box-sizing:border-box;padding:20px 20px 18px;max-height:calc(100% - 8px);overflow-y:auto}
+.ocause{display:flex;align-items:center;justify-content:center;gap:8px;color:var(--muted);font-weight:700;margin:0 0 10px}
+.ocause i{width:14px;height:14px;border-radius:4px;display:inline-block}
+.oscore{display:flex;flex-direction:column;align-items:center;line-height:1;margin:4px 0 2px}
+.oscore b{font-size:52px;font-weight:800;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.oscore span{font-weight:700;color:var(--muted);margin-top:4px}
+.obest{margin:8px 0 12px;font-weight:800}
+.obest.rec{color:var(--accent)}
+.oshot{display:block;width:100%;height:auto;max-height:34vh;object-fit:contain;border-radius:12px;border:1px solid var(--panel-edge);margin:0 0 12px;background:var(--ground)}
+.ostats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:0 0 12px}
+.ostats div{background:var(--warm);border-radius:10px;padding:7px 2px;display:flex;flex-direction:column;gap:2px}
+.ostats b{font-size:17px;font-variant-numeric:tabular-nums}
+.ostats span{font-size:11.5px;color:var(--muted);font-weight:700}
+.ounlock{margin:0 0 12px;padding:8px 10px;border-radius:10px;border:2px solid var(--accent);font-weight:800;color:var(--fg)}
 .map.soon{border:2px dashed var(--panel-edge);background:transparent;align-items:center;justify-content:center;color:var(--muted);font-weight:700;text-align:center;padding:16px;min-height:120px}
 .zoom{position:absolute;right:max(12px,env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;z-index:2}
 .zoom button{width:40px;height:40px;padding:0;justify-content:center;font-size:22px;line-height:1;border-radius:12px;background:var(--panel)}
@@ -141,7 +161,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
   <div id="tag" class="tag" hidden></div>
   <div id="toast" class="tag toast" hidden></div>
   <div id="weekBox" class="over" hidden><div class="card"><h2 id="weekTitle">Неделя 2</h2><p>Получено +<span id="weekRoads">15</span> дорог. Выбери ещё одно.</p><div class="offers" id="offers"></div></div></div>
-  <div id="over" class="over" hidden><div class="card"><h2>Магазин переполнен</h2><p>Продержались <b id="overTime"></b>, заказов — <b id="overTrips"></b>.</p><p id="overBest"></p><div class="row"><button id="againBtn" type="button" class="on">Ещё раз</button><button id="overMenuBtn" type="button">В меню</button></div></div></div>
+  <div id="over" class="over" hidden><div class="card ocard"><h2>Игра окончена</h2><p class="ocause" id="overCause"></p><div class="oscore"><b id="overTrips"></b><span id="overTripsW">заказов</span></div><p id="overBest" class="obest"></p><img id="overShot" class="oshot" alt="Твоя сеть дорог в конце партии"><div class="ostats" id="overStats"></div><p id="overUnlock" class="ounlock" hidden></p><div class="row"><button id="againBtn" type="button" class="on">Ещё раз</button><button id="overMenuBtn" type="button">В меню</button></div></div></div>
   <div id="menu" class="over menu" hidden><div class="card mcard">
     <h1 class="mtitle">Дорожки</h1>
     <p class="msub">Рисуй дороги — пусть машинки успевают к магазинам</p>
@@ -210,6 +230,7 @@ function nb(i){ const c = col_(i), r = row_(i), out = [];
 // Roads are drawn lines: an edge joins two cells only where the player dragged from one to the other (8 directions, 45° allowed).
 const D8 = [[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]];
 const OPP8 = d => (d + 4) & 7;
+const pathOk = p => !!p && p.every((x, k) => k === 0 || adj8(p[k - 1], x) || (hwOf.has(p[k - 1]) && hwOf.get(p[k - 1]).partner === x));
 const adj8 = (a, b) => a !== b && Math.max(Math.abs(col_(a) - col_(b)), Math.abs(row_(a) - row_(b))) === 1;
 const dir8 = (a, b) => { const dc = col_(b) - col_(a), dr = row_(b) - row_(a); return D8.findIndex(v => v[0] === dc && v[1] === dr); };
 const mid = (i, d) => [cx(i) + D8[d][0] * H, cy(i) + D8[d][1] * H];
@@ -773,13 +794,14 @@ function stepCar(car, dt){
         car.s = 0; car.phase = 'unpark'; car.rev = true; }
       else car.waitT = 0.5; }
     return; }
+  if ((car.phase === 'unpark' || car.phase === 'leave') && !pathOk(car.homePath)){ const p = bfsNodes(car.target.i, car.home); if (p) car.homePath = p; else { goHome(car); return; } } // the way home changed under us (a highway taken away)
   if (car.phase === 'unpark'){ if (stepLot(car, dt)){
       const b = car.target, start = samp(buildGeom(car.homePath)[0], 0);
       car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], lanePt(b, 1.5, 0.62, true), [start[0], start[1]]]));
       car.s = 0; car.phase = 'leave'; car.rev = false; car.v = 0; } return; }
   if (car.phase === 'leave'){ const st0 = samp(buildGeom(car.homePath)[0], 0);
     if (car.s > car.lot.len - CAR_L * 2.4 && gateIn(car.target) && (car.gateT = (car.gateT || 0) + dt) < 8){ car.v = 0; return; } // someone is just turning in through the gate
-    if (car.s > car.lot.len - MIN_GAP && !spotFree(st0[0], st0[1], car, st0[2], car.target) && (car.gateT = (car.gateT || 0) + dt) < 8){ car.v = 0; return; } // wait at the gate until the road is clear (not for ever)
+    if (car.s > car.lot.len - MIN_GAP && !spotFree(st0[0], st0[1], car, st0[2], car.target)){ car.v = 0; return; } // wait at the gate until the road is clear: never pull out onto a car
     if (stepLot(car, dt)){ const v = car.v, da = car.da, from = car.slotShop; releaseStall(car); startTrip(car, car.homePath, car.home, true); car.v = v; car.da = da; car.fromShop = from; } return; }
   if (car.netV !== netV){ car.netV = netV; rebase(car); }
   if (car.ox || car.oy){ const k = Math.exp(-dt * 7); car.ox *= k; car.oy *= k; if (Math.abs(car.ox) + Math.abs(car.oy) < 0.05){ car.ox = 0; car.oy = 0; } }
@@ -873,7 +895,8 @@ function stepLot(car, dt){
   if (!blocked) for (const o of cars){ if (o.phase !== 'go' || Math.abs(o.x - car.x) > CAR_L * 1.6 || Math.abs(o.y - car.y) > CAR_L * 1.6) continue;
     if (o.target === car.slotShop && !o.back && o.v < VMAX * 0.3) continue; // a car waiting to come into this lot lets us out first
     const fx = car.x + hx * 8, fy = car.y + hy * 8; if (((o.x - car.x) * hx + (o.y - car.y) * hy) > 0 && Math.cos(o.ang - car.ang) > -0.3 && boxHit(fx, fy, car.da, o.x, o.y, o.da, 2)){ blocked = true; break; } }
-  const loose = (car.stuck || 0) > 5; // a lot car that has stood 5 s finishes its move: a lot must never lock up
+  if (car.lotG !== g){ car.lotG = g; car.lotT = 0; } car.lotT += dt;
+  const loose = (car.stuck || 0) > 5 || car.lotT > g.len / vmax + 5; // a lot move that has taken 5 s too long finishes anyway: a lot must never lock up, even when cars inch back and forth
   const vt = blocked && !loose ? 0 : vmax; car.v += Math.max(-DEC * dt, Math.min(ACC * dt, vt - car.v));
   { const q = samp(g, Math.min(1, (car.s + car.v * dt) / g.len)); if (!loose && car.v > 0 && wouldHit(car, q[0], q[1], car.rev ? q[2] + Math.PI : q[2])) car.v = 0; }
   if (car.v < 1) car.stuck = (car.stuck || 0) + dt; else car.stuck = 0;
@@ -885,7 +908,10 @@ function stepLot(car, dt){
 }
 const spotFree = (x, y, me, ang, shop) => !cars.some(o => o !== me && o.phase === 'go' && !(shop && o.target === shop && !o.back) && Math.hypot(o.x - x, o.y - y) < MIN_GAP + 2 && (ang === undefined || Math.cos(o.ang - ang) > 0.3)); // only traffic going the same way blocks a start; cars queueing for this lot wait for us
 // The gate of a lot passes one way at a time: nobody turns in while a car is driving out through it, and the other way round.
-const gateOut = (sh, me) => { const inDoor = me && me.segs && me.segs[me.si] && me.segs[me.si].cell === sh.doorCell; return cars.some(o => o !== me && ((o.phase === 'leave' && o.slotShop === sh && o.s > o.lot.len - CAR_L * 2.2) || (o.phase === 'go' && o.back && o.fromShop === sh && o.segs[o.si] && (o.segs[o.si].cell === sh.i || (!inDoor && o.segs[o.si].cell === sh.doorCell && o.si <= 1))))); };
+// The gate of a lot passes one way at a time: nobody turns in while a car is driving out through it, and the other way round.
+// A car already standing in the door cell goes in: it would only block the one coming out.
+const gateOut = (sh, me) => { const inDoor = me && me.segs && me.segs[me.si] && me.segs[me.si].cell === sh.doorCell; if (inDoor || (me && (me.stuck || 0) > 4)) return false;
+  return cars.some(o => o !== me && ((o.phase === 'leave' && o.slotShop === sh && o.s > o.lot.len - CAR_L * 2.2) || (o.phase === 'go' && o.back && o.fromShop === sh && o.segs[o.si] && (o.segs[o.si].cell === sh.i || (o.segs[o.si].cell === sh.doorCell && o.si <= 1))))); };
 const gateIn = sh => cars.some(o => o.phase === 'park' && o.slotShop === sh && o.s < CAR_L * 1.8);
 function lotFull(car, k){
   if (car.back || car.target.type !== 'shop') return false;
@@ -941,7 +967,7 @@ function tick(dt){
       if (!b.lvl && b.t > T.grow){ b.lvl = 1; b.growT = 0; if (!quiet) sfx('shop'); } // a shop that has stood a while grows: holds more and orders more often
       if (b.growT !== undefined) b.growT += dt;
       if (b.pinT <= 0){ b.pins = Math.min(capOf(b), b.pins + 1); b.pinT = (T.pinBase + Math.random() * T.pinRand) * Math.max(T.rampFloor, 1 - time / T.ramp) * rateOf(b); }
-      if (b.pins >= capOf(b)){ if (Math.floor(b.overT / 3.5) !== Math.floor((b.overT + dt) / 3.5) || b.overT === 0) sfx('alarm'); b.overT += dt; if (b.overT >= T.overflow){ over = true; $('over').hidden = false; $('overTime').textContent = fmt(time); $('overTrips').textContent = trips; gameOver(); } }
+      if (b.pins >= capOf(b)){ if (Math.floor(b.overT / 3.5) !== Math.floor((b.overT + dt) / 3.5) || b.overT === 0) sfx('alarm'); b.overT += dt; if (b.overT >= T.overflow){ over = true; gameOver(b); $('over').hidden = false; } }
       else b.overT = Math.max(0, b.overT - dt * 2);
     } }
   spawnHouseT -= dt; spawnShopT -= dt;
@@ -1509,10 +1535,15 @@ function drawMini(c, id){ // a little picture of the map: its water, a shop and 
   const shop = { random: [0.36, 0.44], minsk: [0.18, 0.42], bobruisk: [0.38, 0.4], lake: [0.12, 0.5], hills: [0.44, 0.48] }[id]; sq(shop[0] * w, shop[1] * h, P.col[0], 26, 15); }
 function buildMenuMaps(){
   const box = $('maps'); box.innerHTML = '';
-  for (const id of ['random', 'minsk', 'bobruisk', 'lake', 'hills']){ const m = MAPS[id], best = bestScore(id);
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'map';
-    b.innerHTML = `<canvas width="252" height="140"></canvas><span class="mname">${m.name}</span><span class="mdesc">${m.desc}${best ? ' · рекорд ' + best : ''}</span>`;
-    b.onclick = () => { newGame(id); closeMenu(); }; box.appendChild(b); drawMini(b.querySelector('canvas'), id); } }
+  const top = topScore();
+  for (const id of MAP_IDS){ const m = MAPS[id], best = bestScore(id), open = isOpen(id);
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'map' + (open ? '' : ' locked');
+    b.innerHTML = `<canvas width="252" height="140"></canvas><span class="mname">${open ? '' : LOCK_SVG}${m.name}</span>` + (open
+      ? `<span class="mdesc">${m.desc}${best ? ' · рекорд ' + best : ''}</span>`
+      : `<span class="mlock">Откроется, когда наберёшь ${UNLOCK[id]} заказов за игру</span><span class="mdesc">Лучшее пока — ${top}</span><span class="mbar"><i style="width:${Math.min(100, top / UNLOCK[id] * 100).toFixed(0)}%"></i></span>`);
+    if (open) b.onclick = () => { newGame(id); closeMenu(); };
+    else b.disabled = true;
+    box.appendChild(b); drawMini(b.querySelector('canvas'), id); } }
 function openMenu(){
   const playing = !over && time > 1; // a game that has actually been played can be continued
   if (playing) saveNow();
@@ -1659,8 +1690,34 @@ function saveNow(){ if (over || quiet) return; try { localStorage.setItem(SAVE_K
 let saveT = null; function saveSoon(){ clearTimeout(saveT); saveT = setTimeout(saveNow, 300); }
 function clearSave(){ try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
 function bestScore(id){ try { return +localStorage.getItem(bestKey(id || mapId)) || 0; } catch (e) { return 0; } }
-function gameOver(){ const best = bestScore(); if (trips > best){ try { localStorage.setItem(bestKey(mapId), String(trips)); } catch (e) {} }
-  $('overBest').textContent = trips > best ? 'Новый рекорд!' : `Рекорд — ${best}`; clearSave(); }
+// ---------- end of a game: score, record, a picture of the network, map unlocks ----------
+const MAP_IDS = ['random', 'minsk', 'bobruisk', 'lake', 'hills'];
+const UNLOCK = { lake: 200, hills: 350 }; // orders in one game on any map; the first three maps are open from the start
+const LOCK_SVG = '<svg viewBox="0 0 13 15" aria-hidden="true"><rect x="1.5" y="6.5" width="10" height="7.5" rx="2" fill="currentColor" stroke="none" style="color:var(--muted)"/><path d="M3.8 6.5V4.6a2.7 2.7 0 0 1 5.4 0v1.9"/></svg>';
+const COLOR_NAMES = ['Красный', 'Синий', 'Жёлтый', 'Зелёный'];
+const topScore = () => Math.max(0, ...MAP_IDS.map(id => bestScore(id)));
+const isOpen = id => !UNLOCK[id] || bestScore(id) > 0 || topScore() >= UNLOCK[id];
+function shotOfNetwork(){ // the whole open area, drawn without the player's zoom
+  const keep = [uz, pan.x, pan.y]; uz = 1; pan.x = 0; pan.y = 0; placeCamera(false, 0); draw();
+  const x0 = (offX + view.x * scale) * dpr, y0 = (offY + view.y * scale) * dpr, w = view.w * scale * dpr, h = view.h * scale * dpr;
+  const k = Math.min(1, 680 / w), c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+  c.getContext('2d').drawImage(cv, x0, y0, w, h, 0, 0, c.width, c.height);
+  [uz, pan.x, pan.y] = keep; placeCamera(false, 0);
+  try { return c.toDataURL('image/jpeg', 0.85); } catch (e) { return ''; } }
+function gameOver(cause){ const best = bestScore(), wasOpen = MAP_IDS.filter(isOpen), rec = trips > best;
+  if (rec) lsSet(bestKey(mapId), String(trips));
+  const opened = MAP_IDS.filter(id => isOpen(id) && !wasOpen.includes(id));
+  $('overTrips').textContent = trips; $('overTripsW').textContent = plural(trips, 'заказ', 'заказа', 'заказов');
+  const cause0 = cause && cause.type === 'shop' ? cause : null;
+  $('overCause').innerHTML = cause0 ? `<i style="background:${P.col[cause0.color]}"></i>${COLOR_NAMES[cause0.color]} магазин переполнен` : 'Магазин переполнен';
+  $('overBest').textContent = rec ? (best ? `Новый рекорд! Прошлый — ${best}` : 'Первый рекорд на этой карте!') : (best ? `Рекорд на карте «${MAPS[mapId].name}» — ${best}` : 'Рекорда на этой карте пока нет');
+  $('overBest').classList.toggle('rec', rec);
+  let houses = 0, shops = 0; for (const b of bld.values()) b.type === 'house' ? houses++ : shops++;
+  const st = [[fmt(time), 'время'], [week, plural(week, 'неделя', 'недели', 'недель')], [houses, plural(houses, 'дом', 'дома', 'домов')], [roads.size, 'клеток дорог']];
+  $('overStats').innerHTML = st.map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('');
+  const u = $('overUnlock'); u.hidden = !opened.length; if (opened.length) u.textContent = (opened.length > 1 ? 'Открыты новые карты: ' : 'Открыта новая карта: ') + opened.map(id => '«' + MAPS[id].name + '»').join(', ');
+  const img = $('overShot'), src = quiet ? '' : shotOfNetwork(); img.hidden = !src; if (src) img.src = src;
+  clearSave(); }
 function newGame(id){ if (id) mapId = id; clearSave(); quiet = true; reset(); quiet = false; resize(); saveNow(); }
 setInterval(saveNow, 3000);
 window.addEventListener('pagehide', saveNow);
