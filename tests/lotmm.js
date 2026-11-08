@@ -24,6 +24,6 @@ const setup=await p.evaluate(()=>__ev(`(()=>{ mapId='random'; newGame('random');
 console.log(setup);
 let worst=0;
 for(let k=0;k<30;k++){ const r=JSON.parse(await p.evaluate(()=>__ev(`(()=>{ for(let i=0;i<400;i++){ if(choosing){ choosing=false; $('weekBox').hidden=true; } for(const s of bld.values()) if(s.type==='shop') s.pins=Math.max(s.pins, 5); tick(1/40);} 
-   const st=cars.filter(c=>c.phase!=='home'&&(c.stuck||0)>15); return JSON.stringify({t:Math.round(time), trips, stuck15:st.length, maxStuck:Math.round(Math.max(0,...cars.map(c=>c.stuck||0))), phases:st.map(c=>c.phase+':'+(c.phase==='go'?c.segs[c.si].cell:'-'))}); })()`)));
+   const st=cars.filter(c=>c.phase!=='home'&&(c.stuck||0)>15); return JSON.stringify({t:Math.round(time), trips, stuck15:st.length, maxStuck:Math.round(Math.max(0,...cars.map(c=>c.stuck||0))), phases:st.map(c=>c.phase+':'+(c.phase==='go'?c.segs[c.si].cell+':'+c.why+':'+c.curKey+':'+(c.cutBy&&c.cutBy.id)+':'+c.id+':'+c.color+':'+Math.round(c.gap):'-'))}); })()`)));
   worst=Math.max(worst,r.maxStuck); console.log(JSON.stringify(r)); if(r.maxStuck>30){ await p.screenshot({path:__dirname+'/shots/lot_stuck.png'}); break; } }
 await p.screenshot({path:__dirname+'/shots/lotscene.png'}); console.log('worst',worst,errs); await b.close();})();

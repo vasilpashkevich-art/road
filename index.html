@@ -681,7 +681,7 @@ function bigRing(c, a1, a2, k, b1, b2){ // the way round a 3×3 roundabout: in a
   const ph = 0.5, N = Math.max(3, Math.ceil((D - 2 * ph) / 0.3));
   for (let s = 0; s <= N; s++){ const t = ti - ph - (D - 2 * ph) * s / N; P.push([C[0] + Math.cos(t) * RB, C[1] + Math.sin(t) * RB]); }
   P.push([C[0] + v2[0] * L2 + r2[0], C[1] + v2[1] * L2 + r2[1]], bent2 ? side(a2, b2) : [C[0] + v2[0] * R2 + r2[0], C[1] + v2[1] * R2 + r2[1]]);
-  return mk('poly', null, null, null, k, c, crPts(P)); }
+  const g = mk('poly', null, null, null, k, c, crPts(P)); g.big = true; return g; }
 function buildGeom(path){
   const segs = [];
   for (let k = 0; k < path.length; k++){
@@ -751,7 +751,8 @@ function enterCell(car, cell){
   const g = cell >= 0 && jGroup.has(cell) ? jGroup.get(cell) : -1;
   if (car.lock === g) return;
   if (car.lock >= 0){ const s = locks.get(car.lock); if (s) s.delete(car); car.lock = -1; }
-  if (g >= 0){ let s = locks.get(g); if (!s) locks.set(g, s = new Set()); s.add(car); car.lock = g; }
+  if (g >= 0){ let s = locks.get(g); if (!s) locks.set(g, s = new Set()); s.add(car); car.lock = g;
+    if (TRAFFIC2 && car.segs){ car.boxIn = car.curKey; const k0 = car.segs.findIndex((sg, q) => q >= car.si && sg.cell === cell); const t = laneTrack(car), to = boxEnd(car, k0 >= 0 ? k0 : car.si, g); car.exitKey = t.keys[edgeAt(t, t.segR[to + 1] - 0.5)]; } }
 }
 function exitBlocked(car, g){ // do not enter the crossing while the road just past it is jammed
   for (let k = car.si + 1; k < car.segs.length; k++){ const sg = car.segs[k];
@@ -880,6 +881,106 @@ function gapAhead(car, seg){
     best = Math.min(best, MIN_GAP - 1); }
   return best;
 }
+// ---------- traffic, version 2: lanes along the way, and a crossing that is entered only when it can be left ----------
+// Every car is somewhere on a directed edge of its way (from one cell's middle to the next cell's middle). Cars on the same directed edge
+// share a lane, so a car looks only at the cars ahead of it on its own coming edges and keeps a small gap; oncoming cars, cars on a
+// highway above, cars that already turned off are not its business. At a crossing a car goes in only if (1) the light lets it,
+// (2) the road just past the crossing has room for its whole body (so a queue never stands across a crossing), (3) nobody inside the
+// crossing is on a way that cuts its own (cars from the same lane just follow), and (4) no car that stopped earlier at this crossing,
+// on a way that cuts its own, could go now (first come, first served).
+const TRAFFIC2 = true;
+let laneMap = new Map();
+function laneTrack(car){
+  if (car.trk && car.trk.segs === car.segs) return car.trk;
+  const P = car.path, S = car.segs, n = P.length, nodeR = new Array(n).fill(NaN), segR = []; let R = 0;
+  const closest = (g, c) => { const C = [cx(c), cy(c)]; let bt = 0, bd = 1e9; for (let q = 0; q <= 16; q++){ const pt = samp(g, q / 16), d = Math.hypot(pt[0] - C[0], pt[1] - C[1]); if (d < bd){ bd = d; bt = q / 16; } } return bt * g.len; };
+  for (let q = 0; q < S.length; q++){ const g = S[q], k = g.node; segR.push(R);
+    if (g.kind !== 'hw'){
+      if (g.big){ nodeR[k - 1] = R + closest(g, P[k - 1]); nodeR[k + 1] = R + closest(g, P[k + 1]); nodeR[k] = (nodeR[k - 1] + nodeR[k + 1]) / 2; }
+      else if (k === 0 && q === 0) nodeR[0] = R;
+      else if (k === n - 1 && q === S.length - 1) nodeR[k] = R + g.len;
+      else if (isNaN(nodeR[k])) nodeR[k] = R + closest(g, P[k]); }
+    R += g.len; }
+  segR.push(R);
+  for (let k = 0; k < n; k++) if (isNaN(nodeR[k])){ let a = k - 1; while (a >= 0 && isNaN(nodeR[a])) a--; nodeR[k] = a >= 0 ? nodeR[a] + 0.01 : 0; }
+  for (let k = 1; k < n; k++) if (nodeR[k] < nodeR[k - 1]) nodeR[k] = nodeR[k - 1];
+  const keys = P.map((c, k) => k < n - 1 ? c + '>' + P[k + 1] : null);
+  return car.trk = { segs: S, nodeR, segR, keys, total: R }; }
+function carR(car){ const t = laneTrack(car); return t.segR[car.si] + car.s; }
+function edgeAt(t, R){ let k = 0; while (k + 1 < t.nodeR.length - 1 && t.nodeR[k + 1] <= R) k++; return k; }
+function buildLanes(){ laneMap = new Map();
+  for (const car of cars){ if (car.phase !== 'go' || !car.segs){ car.curKey = null; continue; }
+    const t = laneTrack(car), R = carR(car), k = edgeAt(t, R); car.ek = k; car.curKey = t.keys[k];
+    if (!car.curKey || RING_SEG(car.segs[car.si])) continue; /* on a roundabout the circle is shared by every arm: there cars go by sight */ let L = laneMap.get(car.curKey); if (!L) laneMap.set(car.curKey, L = []); L.push([car, R - t.nodeR[k]]); } }
+const RING_SEG = g => g && g.cell >= 0 && rings.has(g.cell);
+// the nearest car ahead on this car's own way (centre to centre, along the way), looking up to `far` ahead
+function leadAhead(car, far, fromR){ const t = laneTrack(car), R0 = fromR === undefined ? carR(car) : fromR; let best = 1e9, lead = null;
+  for (let k = edgeAt(t, R0); k < t.keys.length - 1 && t.nodeR[k] < R0 + far; k++){ const L = laneMap.get(t.keys[k]); if (!L || rings.has(car.path[k]) || rings.has(car.path[k + 1])) continue;
+    for (const [o, off] of L){ if (o === car) continue; const d = t.nodeR[k] + off - R0; if (d > 0.01 && d < best){ best = d; lead = o; } else if (Math.abs(d) <= 0.01 && o.id < car.id && fromR === undefined && d < best){ best = 0.01; lead = o; } } }
+  // on a roundabout cars from different arms share the circle: there the car ahead is found by sight
+  const g = car.segs[car.si], nx = car.segs[car.si + 1];
+  if (fromR === undefined && (RING_SEG(g) || (RING_SEG(nx) && g.len - car.s < far))){ const hx = Math.cos(car.ang), hy = Math.sin(car.ang);
+    for (const o of cars){ if (o === car || o.phase !== 'go') continue; const dx = o.x - car.x, dy = o.y - car.y; if (Math.abs(dx) > far || Math.abs(dy) > far) continue;
+      const f = dx * hx + dy * hy; if (f <= 0 || f > far || Math.abs(-dx * hy + dy * hx) > CELL * 0.17 || Math.cos(o.ang - car.ang) < 0.3) continue;
+      if (!RING_SEG(o.segs[o.si])) continue; if (f < best){ best = f; lead = o; } } }
+  return [best, lead]; }
+// the stretch of the way inside crossing group G, starting at segment `from`
+function boxEnd(car, from, G){ let to = from; while (to + 1 < car.segs.length){ const sg = car.segs[to + 1]; if (sg.cell < 0 || jGroup.get(sg.cell) !== G) break; to++; } return to; }
+function crossCut(a, aFrom, b, bFrom, G, ring){ // do two ways through crossing G come close?
+  const mine = wayPts(a, aFrom, G), theirs = wayPts(b, bFrom, G), lim = CAR_W * 1.2; // the two lanes of one road are 2·LANE apart: oncoming traffic does not count as cutting if (!mine.length || !theirs.length) return false;
+  const m = ring ? mine.slice(0, 4) : mine; // on a roundabout only the merge has to be clear: the circle itself is shared by following
+  for (const p1 of m) for (const p2 of theirs) if (Math.abs(p1[0] - p2[0]) < lim && Math.abs(p1[1] - p2[1]) < lim && Math.hypot(p1[0] - p2[0], p1[1] - p2[1]) < lim) return true;
+  return false; }
+// A roundabout is not one big crossing: a car joining the circle gives way only to the cars on the circle that are about to pass
+// its merge point (or stand on it), not to every car somewhere on the ring. Cars go round counter-clockwise on screen (angle falling).
+function ringCut(car, k, o){
+  const g = car.segs[k]; if (!g || !rings.has(g.cell)) return crossCut(car, k, o, o.si, jGroup.get(car.segs[k].cell), true);
+  const c = g.cell, Cx = cx(c), Cy = cy(c), a1 = car.path[g.node - 1]; if (a1 === undefined) return false;
+  const thm = Math.atan2(cy(a1) - Cy, cx(a1) - Cx) - 0.5, mx = Cx + Math.cos(thm) * RB, my = Cy + Math.sin(thm) * RB; // where this car joins the circle
+  if (Math.hypot(o.x - mx, o.y - my) < CAR_L * 1.3) return true; // someone right at the merge
+  const r = Math.hypot(o.x - Cx, o.y - Cy); if (Math.abs(r - RB) > CELL * 0.22) return false; // not on the circle itself (coming in or going out on its own arm lane)
+  let up = Math.atan2(o.y - Cy, o.x - Cx) - thm; while (up < 0) up += Math.PI * 2; while (up >= Math.PI * 2) up -= Math.PI * 2;
+  if (up * RB > CELL * 1.25) return false; // it is further round: it will not reach the merge before this car is in
+  const og = o.segs[o.si], oa2 = og && og.cell === c ? o.path[og.node + 1] : undefined; // a car leaving by the arm just before my merge does not pass it
+  if (oa2 !== undefined){ const tho = Math.atan2(cy(oa2) - Cy, cx(oa2) - Cx) + 0.5; let ex = Math.atan2(o.y - Cy, o.x - Cx) - tho; while (ex < 0) ex += Math.PI * 2; while (ex >= Math.PI * 2) ex -= Math.PI * 2; if (ex < up) return false; }
+  return true; }
+function roomPast(car, from, G, depth = 0){ // is there room for this car's body on the road just past the crossing?
+  const to = boxEnd(car, from, G), t = laneTrack(car), Rx = t.segR[to + 1]; if (Rx === undefined || to + 1 >= car.segs.length) return true;
+  const after = car.segs[to + 1]; if (to + 2 >= car.segs.length && after && bld.has(after.cell)) return true; // the way ends at a house or shop right there
+  let inside = 0; const exitKey = t.keys[edgeAt(t, Rx - 0.5)];
+  for (const o of (locks.get(G) || [])) if (o !== car && o.phase === 'go' && o.lock === G && o.exitKey === exitKey) inside++; // cars already in the crossing that come out the same way
+  const [d, lead] = leadAhead(car, CELL * 3, Rx - CAR_L * 0.5); const free = d - inside * MIN_GAP;
+  if (!(free >= MIN_GAP + CAR_L * 0.2 || (lead && lead.v > VMAX * 0.5 && free >= CAR_L * 0.6)))return false;
+  // the next crossing right behind this one: if it would not let this car in now, the car would have to wait between the two;
+  // that is only fine where the stretch between them holds its whole body
+  if (depth < 2) for (let k2 = to + 1; k2 < car.segs.length && t.segR[k2] - Rx < CELL * 1.3; k2++){ const sg = car.segs[k2]; if (sg.cell < 0) break;
+    const G2 = jGroup.get(sg.cell); if (G2 === undefined || G2 === G) continue;
+    const stand = t.segR[k2] - STOP - inside * MIN_GAP - Rx; // where this car would stand, past the end of this crossing
+    if (stand < CAR_L * 0.5){ const w2 = boxOk(car, k2, G2, depth + 1); if (w2) return false; }
+    break; }
+  return true; }
+function boxOk(car, k, G, depth = 0){ // the crossing rules without the queue order: light, room past it, nobody inside on a crossing way
+  if (car.ghost <= 0 && lightStops(car.segs[k].cell, car)) return 'light';
+  if (!roomPast(car, k, G, depth)) return 'room';
+  const ring = jCap.get(G) === 3;
+  for (const o of (locks.get(G) || [])){ if (o === car || o.phase !== 'go' || o.lock !== G) continue;
+    if (o.boxIn && o.boxIn === car.curKey) continue; // the car ahead from my own lane: I simply follow it
+    if (car.fromShop && o.target === car.fromShop && !o.back) continue;
+    if (ring ? ringCut(car, k, o) : crossCut(car, k, o, o.si, G, false)){ car.cutBy = o; return 'cut'; } }
+  return ''; }
+function exitOf(car, from, G){ const t = laneTrack(car), to = boxEnd(car, from, G); return t.keys[edgeAt(t, t.segR[to + 1] - 0.5)]; }
+function boxWhy(car, k){ // why this car may not go into the crossing at segment k now ('' = it may)
+  const G = jGroup.get(car.segs[k].cell); if (G === undefined) return car.ghost <= 0 && lightStops(car.segs[k].cell, car) ? 'light' : '';
+  if (car.lock === G) return '';
+  const why = boxOk(car, k, G); if (why) return why;
+  const myT = car.queueG === G ? car.waitAt : time; // a car still rolling up arrives now: after everyone already waiting
+  if (car.stuck < 5 && car.lock < 0) for (const o of cars){ // first come, first served (a car still inside the crossing before this one goes on first, so it never stands in it) among cars whose ways cross; a stream from one lane does not starve the rest
+    if (o === car || o.phase !== 'go' || o.waitG !== G || o.queueG !== G || !(o.waitAt < myT - 1e-6) || o.curKey === car.curKey) continue;
+    const w = boxOk(o, o.si + 1, G);
+    if (w === 'room' && exitOf(o, o.si + 1, G) === exitOf(car, k, G)) return 'order'; // it waits for room on the same road out: it is first in that queue too
+    if (w && w !== 'cut') continue; // it cannot go for its own reasons (no room, red light): it does not hold up the rest
+    if (crossCut(car, k, o, o.si + 1, G, jCap.get(G) === 3)){ car.cutBy = o; return 'order'; } }
+  return ''; }
 function validLink(car, k){
   const a = car.path[k], b = car.path[k + 1];
   if (b === undefined) return true;
@@ -946,6 +1047,24 @@ function stepCar(car, dt){
     const bendV = g => Math.min(crossV(g), g.kind === 'curve' ? VMAX * 0.85 : (g.kind === 'poly' ? VMAX * 0.8 : Infinity));
     vt = Math.min(vt, bendV(seg)); const nx = car.segs[car.si + 1];
     if (nx){ const vb = bendV(nx); if (vb < Infinity) vt = Math.min(vt, Math.sqrt(vb * vb + 2 * CELL * 8 * Math.max(0, seg.len - car.s))); } }
+  if (TRAFFIC2){
+    // never stand for ever: a car held by the crossing rules themselves (a way cut, the queue order) slips through after 12 s, anything else after 30 s
+    if (car.ghost <= 0 && ((car.stuck || 0) > 30 || ((car.stuck || 0) > 12 && (car.why === 'cut' || car.why === 'order')))){ car.ghost = 1.5; car.stuck = 0; }
+    if (car.ghost > 0) car.ghost -= dt;
+    else {
+      let [gap] = leadAhead(car, LOOK * 1.6); const nx0 = car.segs[car.si + 1];
+      if (seg.kind !== 'line' || (nx0 && nx0.kind !== 'line' && seg.len - car.s < CELL * 0.6)) gap -= 5; // on a bend two bodies at the same distance along the way stand closer: keep a little more
+      if (!car.back && car.target && car.target.type === 'shop' && car.si >= car.segs.length - 2){ const hx = Math.cos(car.ang), hy = Math.sin(car.ang); // the car just turning into the lot ahead of me
+        for (const o of cars){ if (o.slotShop !== car.target || !(o.phase === 'park' || o.phase === 'leave' || o.phase === 'unpark')) continue; const dx = o.x - car.x, dy = o.y - car.y, f = dx * hx + dy * hy;
+          if (f > 0 && f < LOOK * 1.6 && Math.abs(-dx * hy + dy * hx) < CAR_W * 1.2) gap = Math.min(gap, f); } }
+      car.gap = gap;
+      if (gap < LOOK) vt = Math.min(vt, VMAX * Math.max(0, (gap - MIN_GAP) / (LOOK - MIN_GAP)));
+      const nx = car.segs[car.si + 1]; car.waitG = -1; car.why = '';
+      if (nx && nx.cell >= 0 && nx.cell !== seg.cell && car.s > seg.len - CELL * 0.9){ const w = lotFull(car, car.si + 1) ? 'lot' : boxWhy(car, car.si + 1);
+        if (w){ blocked = true; car.why = w; vt = Math.min(vt, Math.max(0, seg.len - STOP - car.s) * 5); car.waitG = jGroup.has(nx.cell) ? jGroup.get(nx.cell) : -1; } }
+      if (car.waitG !== car.queueG){ car.queueG = car.waitG; car.waitAt = time; }
+    }
+  } else {
   if (car.ghost <= 0 && (car.stuck || 0) > 12 && !inProperQueue(car)){ car.ghost = 1.5; car.stuck = 0; } // never stand for ever: after 12 s it slips through (but a queue for a full lot or a red light is a real queue)
   if (car.ghost > 0) car.ghost -= dt;
   else {
@@ -957,12 +1076,13 @@ function stepCar(car, dt){
       car.waitG = jGroup.has(nx.cell) ? jGroup.get(nx.cell) : -1; }
     if (car.waitG !== car.queueG){ car.queueG = car.waitG; car.waitAt = time; } // when this car joined the queue for the crossing
   }
+  }
   const dv = vt - car.v; car.v += Math.max(-DEC * dt, Math.min(ACC * dt, dv));
   
   // hard rule: never move closer than a body length plus a hair to the car ahead, however fast we were going
   if (car.passCar && (car.passCar.phase !== 'go' || Math.hypot(car.passCar.x - car.x, car.passCar.y - car.y) > CAR_L * 1.4 || (car.passT += dt) > 2.5)) car.passCar = null; // a short leave only, counted even while standing: two cars must not stay on top of each other
   let step = car.v * dt; if (car.ghost <= 0 && car.gap !== undefined && car.gap < LOOK){ const room = Math.max(0, car.gap - CAR_L - 3); if (step > room){ step = room; car.v = Math.min(car.v, room / dt); } }
-  if (step > 0 && car.ghost <= 0){ let tries = 0; // shorten the step until the body is clear (a car slipping through skips this)
+  if (step > 0 && car.ghost <= 0 && !TRAFFIC2){ let tries = 0; // shorten the step until the body is clear (a car slipping through skips this)
     const shown = a => { let d = a - car.da; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return car.da + d * Math.min(1, dt * 16); }; // the body as it will be drawn
     const at = d => { let k = car.si, r = car.s + d; while (r > car.segs[k].len && k + 1 < car.segs.length){ r -= car.segs[k].len; k++; } return samp(car.segs[k], Math.min(1, r / car.segs[k].len)); }; // where the car really ends up, even past a segment end
     // Two cars standing nose to side in each other's way would wait forever. After a moment one of them squeezes past
@@ -980,7 +1100,7 @@ function stepCar(car, dt){
   if (blocked && car.s > seg.len - STOP){ car.s = Math.min(seg.len, Math.max(seg.len - STOP, s0)); car.v = 0; } // front bumper stops at the line, not inside the crossing
   while (car.s >= seg.len){
     const nx = car.segs[car.si + 1];
-    if (nx && nx.cell >= 0 && nx.cell !== seg.cell && (lotFull(car, car.si + 1) || (car.ghost <= 0 && lockFull(nx.cell, car)))){ car.s = seg.len; car.v = 0; break; }
+    if (nx && nx.cell >= 0 && nx.cell !== seg.cell && (lotFull(car, car.si + 1) || (car.ghost <= 0 && (TRAFFIC2 ? boxWhy(car, car.si + 1) : lockFull(nx.cell, car))))){ car.s = seg.len; car.v = 0; break; }
     car.s -= seg.len; car.si++;
     if (car.si >= car.segs.length){ arrive(car); return; }
     if (!car.back && car.si === car.segs.length - 1 && car.target.type === 'shop'){ // entering the lot
@@ -1132,7 +1252,7 @@ function showOffers(keys){
 }
 function tick(dt){
   if (over || paused || choosing || menuOpen) return;
-  if (tutHold()){ for (const b of bld.values()) b.t += dt; buildGroups(); dispatch(dt); for (const car of cars) stepCar(car, dt); return; } // the clock waits for the first road
+  if (tutHold()){ for (const b of bld.values()) b.t += dt; buildGroups(); dispatch(dt); if (TRAFFIC2) buildLanes(); for (const car of cars) stepCar(car, dt); return; } // the clock waits for the first road
   time += dt;
   for (const b of bld.values()){ b.t += dt;
     if (b.type === 'shop' && isTail(b)){ b.t = b.head.t; b.lvl = b.head.lvl; b.growT = b.head.growT; continue; }
@@ -1166,6 +1286,7 @@ function tick(dt){
       sfx('shop'); done = true; }
     spawnShopT = done ? T.shop + Math.random() * T.shopRand : 3; }
   buildGroups(); stepLights(dt); stepDying(); dispatch(dt);
+  if (TRAFFIC2) buildLanes();
   for (const car of cars) stepCar(car, dt);
   weekT -= dt; if (weekT <= 0){ weekT += WEEK; newWeek(); }
 }
