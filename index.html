@@ -394,7 +394,7 @@ const SHOP_TYPES = {
   corner: { name: 'Угловой', depth: 2, lot: [0, 0, 2, 2], bld: [[0, 2, 3, 3], [2, 0, 3, 3]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
   m:      { name: 'Средний', depth: 1, lot: [0, 0, 3, 1], bld: [[0, 1, 2, 3]], stalls: [[2.36, 0.62], [0.64, 0.62]] }, // Mini Motorways' plain destination: a block with a strip of lot in front
   long:   { name: 'Длинный', depth: 3, lot: [1, 0, 3, 3], bld: [[0, 0, 1, 3]], stalls: [[2.3, 0.5, 'h'], [2.3, 0.97, 'h'], [2.3, 1.44, 'h'], [2.3, 1.91, 'h'], [2.3, 2.38, 'h']] },
-  mm:     { name: 'Обычный', depth: 2, lot: [1, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[1.6, 1.42, 's'], [1.6, 0.72, 's']], short: true }, // Mini Motorways: a 2×2 block with a one-cell strip of lot along its side
+  mm:     { name: 'Обычный', depth: 2, lot: [1, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[1.68, 0.62, 'l'], [1.68, 1.2, 'l']], short: true, loop: true }, // Mini Motorways: a 2×2 block with a one-cell strip of lot along its side
   twin:   { name: 'Сдвоенный', depth: 2, lot: [0, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
   twinB:  { name: 'Сдвоенный', depth: 2, lot: [0, 0, 2, 2], bld: [[2, 0, 4, 2]], stalls: [[0.64, 0.55], [0.64, 1.05], [0.64, 1.55]] },
   l:      { name: 'Прямой', depth: 3, lot: [0, 0, 3, 3], bld: [[0, 3, 3, 4]], stalls: [[2.36, 0.8], [0.64, 0.8], [2.36, 1.3], [0.64, 1.3], [2.36, 1.8], [0.64, 1.8], [2.36, 2.3], [0.64, 2.3]] } };
@@ -899,7 +899,9 @@ function stepCar(car, dt){
       car.phase = 'wait'; car.waitT = 1.0; car.v = 0; } return; }
   if (car.phase === 'wait'){ car.waitT -= dt;
     if (car.waitT <= 0){ const p = bfsNodes(car.target.i, car.home); // one car backs out at a time, never while another turns in or drives out
-      if (p){ // back out deeper into the lot so the nose ends up facing the exit
+      if (p && SHOP_TYPES[car.target.size].loop){ const b = car.target, start = samp(buildGeom(p)[0], 0); // on round the loop and out
+        car.homePath = p; car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], ...loopFrom(b, car.loopEnd + 2), [start[0], start[1]]])); car.loopOff = -car.loopEnd; car.s = 0; car.phase = 'leave'; car.rev = false; car.v = 0; }
+      else if (p){ // back out deeper into the lot so the nose ends up facing the exit
         const b = car.target;
         car.homePath = p; car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], ...backPts(b, stallsOf(b)[car.slot])]));
         car.s = 0; car.phase = 'unpark'; car.rev = true; }
@@ -962,7 +964,7 @@ function stepCar(car, dt){
     car.s -= seg.len; car.si++;
     if (car.si >= car.segs.length){ arrive(car); return; }
     if (!car.back && car.si === car.segs.length - 1 && car.target.type === 'shop'){ // entering the lot
-      const k = lotMoving(car.target, SHOP_TYPES[car.target.size].short ? ['unpark', 'leave'] : ['unpark']) || gateOut(car.target, car) ? -1 : freeStall(car.target); if (k < 0){ car.si--; car.s = seg.len; car.v = 0; break; }
+      const k = (!SHOP_TYPES[car.target.size].loop && lotMoving(car.target, SHOP_TYPES[car.target.size].short ? ['unpark', 'leave'] : ['unpark'])) || gateOut(car.target, car) ? -1 : freeStall(car.target); if (k < 0){ car.si--; car.s = seg.len; car.v = 0; break; }
       car.slot = k; car.slotShop = car.target; car.target.slots[k] = car;
       const [x0, y0] = samp(car.segs[car.si], 0); car.x = x0; car.y = y0; enterCell(car, -1); intoLot(car); return; }
     const ns = car.segs[car.si];
@@ -990,7 +992,23 @@ function releaseStall(car){ if (car.slot >= 0 && car.slotShop){ if (car.slotShop
 // An angled bay leans towards the entrance: drive a little past it, hook in, back out deeper the same way.
 // The narrow strip of a Mini Motorways lot: the bays lean towards the entrance. A car drives in past its bay, hooks nose-first into it,
 // later backs out deeper into the strip so that its nose faces the way out, and drives out through the neck.
-const STRIP_H = [0.47, -0.88]; // a car's heading in its bay, in the lot's (u, v)
+const STRIP_H = [0.47, -0.88];
+// A loop lot (the user's idea, like a little roundabout): in along the far side of the strip, round the end, back along the building,
+// stop at the bay beside the shop for the order, then on round and out. One way only, so cars never meet head-on and nobody backs up.
+const LOOP_IN = 1.3, LOOP_OUT = 1.7, LOOP_END = 1.62;
+function loopPts(b){ const pts = [shopPt(b, LOOP_IN, 0.55), shopPt(b, LOOP_IN, LOOP_END)];
+  for (let k = 1; k < 8; k++){ const a = Math.PI * k / 8, r = (LOOP_OUT - LOOP_IN) / 2; pts.push(shopPt(b, 1.5 - Math.cos(a) * r, LOOP_END + Math.sin(a) * r * 1.4)); } // round the end
+  pts.push(shopPt(b, LOOP_OUT, LOOP_END), shopPt(b, LOOP_OUT, 0.55)); return pts; }
+function loopAt(b, vs){ const P = loopPts(b), q = shopPt(b, LOOP_OUT, vs); let best = 0, bd = 1e9, acc = 0, at = 0; // arc length along the loop of the bay at vs
+  for (let k = 1; k < P.length; k++){ const L = Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1]);
+    for (let n = 0; n <= 10; n++){ const x = P[k - 1][0] + (P[k][0] - P[k - 1][0]) * n / 10, y = P[k - 1][1] + (P[k][1] - P[k - 1][1]) * n / 10, d = Math.hypot(x - q[0], y - q[1]); if (d < bd){ bd = d; best = acc + L * n / 10; } } acc += L; }
+  return best; }
+function loopUpTo(b, d){ const P = loopPts(b), out = [P[0]]; let acc = 0; // the loop from its start up to arc length d
+  for (let k = 1; k < P.length; k++){ const L = Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1]); if (acc + L >= d){ const f = (d - acc) / L; out.push([P[k - 1][0] + (P[k][0] - P[k - 1][0]) * f, P[k - 1][1] + (P[k][1] - P[k - 1][1]) * f]); return out; } out.push(P[k]); acc += L; }
+  return out; }
+function loopFrom(b, d){ const P = loopPts(b), out = []; let acc = 0;
+  for (let k = 1; k < P.length; k++){ const L = Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1]); if (acc + L > d){ if (!out.length){ const f = Math.max(0, (d - acc) / L); out.push([P[k - 1][0] + (P[k][0] - P[k - 1][0]) * f, P[k - 1][1] + (P[k][1] - P[k - 1][1]) * f]); } out.push(P[k]); } acc += L; }
+  return out; } // a car's heading in its bay, in the lot's (u, v)
 function parkPts(b, [us, vs, kind]){ const side = us < 1.5 ? -1 : 1;
   if (kind === 's') return [lanePt(b, 1.5, Math.max(0.15, vs - 0.3), false), shopPt(b, 1.42, vs + 0.36), shopPt(b, us, vs)];
   if (kind === 'h') return [lanePt(b, 1.5, vs + 0.12, false), shopPt(b, 1.5 + side * 0.28, vs + 0.3), shopPt(b, us, vs)];
@@ -1001,14 +1019,19 @@ function backPts(b, [us, vs, kind]){ const side = us < 1.5 ? -1 : 1;
   return [shopPt(b, 1.5 + side * 0.36, vs + 0.03), lanePt(b, 1.5, Math.min(b.depth - 0.1, vs + 0.3), true)]; }
 function intoLot(car){ // drive up the middle and pull into the stall nose first
   const b = car.target; car.passCar = null;
+  if (SHOP_TYPES[b.size].loop){ const st = stallsOf(b)[car.slot]; car.loopEnd = loopAt(b, st[1]);
+    car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], ...loopUpTo(b, car.loopEnd)])); car.loopOff = car.lot.len - car.loopEnd; car.s = 0; car.phase = 'park'; car.rev = false; return; }
   car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], ...parkPts(b, stallsOf(b)[car.slot])])); car.s = 0; car.phase = 'park'; car.rev = false;
 }
 function waitsRightly(o){ const nx = o.segs && o.segs[o.si + 1]; return !!nx && nx.cell >= 0 && (lotFull(o, o.si + 1) || lightStops(nx.cell, o)); }
 function inProperQueue(car){ if (waitsRightly(car)) return true;
   return cars.some(o => o !== car && o.phase === 'go' && Math.hypot(o.x - car.x, o.y - car.y) < CAR_L * 3.2 && waitsRightly(o)); }
+const loopPos = c => c.phase === 'park' ? c.s - (c.loopOff || 0) : c.phase === 'wait' ? (c.loopEnd || 0) : c.phase === 'leave' ? (c.loopEnd || 0) + c.s : -1e9;
 function stepLot(car, dt){
   const g = car.lot, vmax = VMAX * 0.42;
   let blocked = false; const hx = Math.cos(car.ang), hy = Math.sin(car.ang);
+  if (SHOP_TYPES[car.slotShop ? car.slotShop.size : 'mm'] && car.slotShop && SHOP_TYPES[car.slotShop.size].loop){ const me = loopPos(car); // round the loop: keep behind the car ahead
+    for (const o of cars){ if (o === car || o.slotShop !== car.slotShop) continue; const d = loopPos(o) - me; if (d > 0 && d < CAR_L * 1.25){ blocked = true; break; } } }
   for (const o of cars){ if (true) break; // cars in the same lot do not hold each other up (as in Mini Motorways): a lot can never lock up
     if (o === car || o.slotShop !== car.slotShop || !(o.phase === 'park' || o.phase === 'unpark' || o.phase === 'leave')) continue;
     const dx = o.x - car.x, dy = o.y - car.y, f = dx * hx + dy * hy;
@@ -1041,7 +1064,7 @@ function lotFull(car, k){
   const last = k === car.segs.length - 1, door = car.target.doorCell;
   const intoDoorCrossing = sg.cell === door && jGroup.has(door) && (car.si < 0 || car.segs[car.si].cell === -1 || jGroup.get(car.segs[car.si].cell) !== jGroup.get(door));
   if (!last && !intoDoorCrossing) return false;
-  return freeStall(car.target) < 0 || lotMoving(car.target, SHOP_TYPES[car.target.size].short ? ['unpark', 'leave'] : ['unpark']) || gateOut(car.target, car); } // a one-lane strip is one way at a time
+  return freeStall(car.target) < 0 || (!SHOP_TYPES[car.target.size].loop && lotMoving(car.target, SHOP_TYPES[car.target.size].short ? ['unpark', 'leave'] : ['unpark'])) || gateOut(car.target, car); } // a one-lane strip is one way at a time
 function goHome(car){
   releaseStall(car); car.passCar = null;
   if (!car.back && car.target && car.phase === 'go') car.target.reserved = Math.max(0, car.target.reserved - 1);
@@ -1275,6 +1298,7 @@ function drawHwDeck(h){
 }
 function stallBays(b){ // the painted lines between bays: for each bay two sides along the way the car stands
   const st = stallsOf(b), out = [], seen = new Set();
+  if (SHOP_TYPES[b.size].loop){ for (const [, vs] of st) out.push([1.88, vs - 0.18, 1.88, vs + 0.18]); return out; }
   if (SHOP_TYPES[b.size].short){ for (const [us, vs] of st) for (const dv of [-0.3, 0.3]){ const cu = us, cv = vs + dv; out.push([cu - STRIP_H[0] * 0.2, cv - STRIP_H[1] * 0.2, cu + STRIP_H[0] * 0.2, cv + STRIP_H[1] * 0.2]); } return out.filter((q, k, a) => a.findIndex(z => Math.abs(z[1] - q[1]) < 0.1) === k); } // a narrow strip: short slashes along the bays, as in Mini Motorways
   for (const q of st){ const [us, vs, kind] = q, side = us < 1.5 ? -1 : 1;
     let h = kind === 'h' ? [side * 0.48, -0.3] : [side, 0]; const n = Math.hypot(h[0], h[1]); h = [h[0] / n, h[1] / n];
