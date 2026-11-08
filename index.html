@@ -1079,11 +1079,11 @@ function tick(dt){
       const lo = Math.min(...opts.map(cnt)); const best = opts.filter(k => cnt(k) === lo); c = best[Math.floor(Math.random() * best.length)]; }
     let done = false;
     for (let t = 0; t < 8 && !done; t++){ const i = freeSpot(); if (i < 0 || !place(i, 'shop', c)) continue;
-      // a shop never stands without its own houses: it always brings at least one close by (a new colour brings two)
-      const sb = [...bld.values()].pop(), h1 = spotNear(sb.i);
-      if (h1 < 0){ unplaceShop(sb); continue; }
-      sfx('shop'); quiet = true; place(h1, 'house', c); if (fresh){ const h2 = spotNear(sb.i); if (h2 >= 0) place(h2, 'house', c); colorsInPlay++; } quiet = false;
-      done = true; }
+      // a shop comes alone, as in Mini Motorways; only a new colour brings a pair of its houses, and they turn up somewhere else in town
+      const sb = [...bld.values()].pop();
+      if (fresh){ const h1 = farSpot(c, [sb]) >= 0 ? farSpot(c, [sb]) : spotNear(sb.i); if (h1 < 0){ unplaceShop(sb); continue; }
+        quiet = true; place(h1, 'house', c); const hb = bld.get(h1), h2 = hb ? besideHouse(hb) : -1; if (h2 >= 0) place(h2, 'house', c, hb.door); quiet = false; colorsInPlay++; }
+      sfx('shop'); done = true; }
     spawnShopT = done ? T.shop + Math.random() * T.shopRand : 3; }
   buildGroups(); stepLights(dt); stepDying(); dispatch(dt);
   for (const car of cars) stepCar(car, dt);
