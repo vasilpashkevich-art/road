@@ -222,23 +222,23 @@ function readPalette(){
 const W_BLUE = { '--water': '#4a90c9', '--water-edge': '#3a7bb3', '--deep': '#2f6fa8', '--shallow': '#73b4de', '--wet': '#2a5f8f', '--bridge': '#c9b896', '--island': '#d8cdb4' };
 const MAPCOL = {
   minsk:    { '--ground': '#2f6b45', '--bg': '#245637', '--meadow': '#35744c', '--warm': '#2b6440', '--sand': '#cdbb83', '--sand-dk': '#ad9a63',
-              '--road': '#f4f2e9', '--road-edge': '#1c472d', '--lot': '#f4f2e9', '--lot-edge': '#1c472d', '--tree': '#4d9b5d', '--tree-dk': '#215a35',
+              '--road': '#f7d9b5', '--road-edge': '#1c472d', '--lot': '#f7d9b5', '--lot-edge': '#1c472d', '--tree': '#4d9b5d', '--tree-dk': '#215a35',
               '--rock': '#6f8a5a', '--rock-hi': '#93ad7c', '--rock-sh': '#4a6340',
               '--c0': '#ff6b4f', '--c1': '#5fb0ff', '--c2': '#ffd23f', '--c3': '#f28ad0', '--c0d': '#c2442c', '--c1d': '#2f78c4', '--c2d': '#c99a15', '--c3d': '#b9549a' },
   bobruisk: { '--ground': '#6e2233', '--bg': '#591a29', '--meadow': '#76293b', '--warm': '#681f30', '--sand': '#d8b58a', '--sand-dk': '#b48f66',
-              '--road': '#f7ede7', '--road-edge': '#45111d', '--lot': '#f7ede7', '--lot-edge': '#45111d', '--tree': '#4f8a52', '--tree-dk': '#2c5934',
+              '--road': '#cdeee2', '--road-edge': '#45111d', '--lot': '#cdeee2', '--lot-edge': '#45111d', '--tree': '#4f8a52', '--tree-dk': '#2c5934',
               '--rock': '#8a4a52', '--rock-hi': '#a86a70', '--rock-sh': '#5c2a33',
               '--c0': '#ff9a3d', '--c1': '#5fb0ff', '--c2': '#ffe14d', '--c3': '#5fd39a', '--c0d': '#c46a17', '--c1d': '#2f78c4', '--c2d': '#c9a815', '--c3d': '#2f9a63' },
   hills:    { '--ground': '#bd5e28', '--bg': '#a1501f', '--meadow': '#c56832', '--warm': '#b55824', '--sand': '#e8c48a', '--sand-dk': '#c9a066',
-              '--road': '#fff6ea', '--road-edge': '#7e3711', '--lot': '#fff6ea', '--lot-edge': '#7e3711', '--tree': '#4d8a45', '--tree-dk': '#2f5f2c',
+              '--road': '#d5e8f6', '--road-edge': '#7e3711', '--lot': '#d5e8f6', '--lot-edge': '#7e3711', '--tree': '#4d8a45', '--tree-dk': '#2f5f2c',
               '--rock': '#9a5530', '--rock-hi': '#cf8d5c', '--rock-sh': '#6a3517',
               '--c0': '#8b52f0', '--c1': '#3f8ef0', '--c2': '#ffe14d', '--c3': '#3fc47a', '--c0d': '#5d2fb3', '--c1d': '#2a64b8', '--c2d': '#c9a815', '--c3d': '#2a8d55' },
   lake:     { '--ground': '#c49a1f', '--bg': '#a98417', '--meadow': '#cba329', '--warm': '#bd941c', '--sand': '#ecd47e', '--sand-dk': '#cdb25c',
-              '--road': '#fffaf0', '--road-edge': '#755a0c', '--lot': '#fffaf0', '--lot-edge': '#755a0c', '--tree': '#5b8f3e', '--tree-dk': '#386227',
+              '--road': '#e4dcf7', '--road-edge': '#755a0c', '--lot': '#e4dcf7', '--lot-edge': '#755a0c', '--tree': '#5b8f3e', '--tree-dk': '#386227',
               '--rock': '#9c7c22', '--rock-hi': '#c9a64a', '--rock-sh': '#6c5512',
               '--c0': '#e2463a', '--c1': '#2f6fd8', '--c2': '#8a4fe0', '--c3': '#2a9a5a', '--c0d': '#a52c22', '--c1d': '#22509e', '--c2d': '#6234a8', '--c3d': '#1f7244' },
   random:   { '--ground': '#1f6b6b', '--bg': '#185757', '--meadow': '#257373', '--warm': '#1d6464', '--sand': '#d6c28e', '--sand-dk': '#b3a06c',
-              '--road': '#f2f5f2', '--road-edge': '#0f4242', '--lot': '#f2f5f2', '--lot-edge': '#0f4242', '--tree': '#4a9a6a', '--tree-dk': '#25603f',
+              '--road': '#f9d6c3', '--road-edge': '#0f4242', '--lot': '#f9d6c3', '--lot-edge': '#0f4242', '--tree': '#4a9a6a', '--tree-dk': '#25603f',
               '--rock': '#4f7f78', '--rock-hi': '#76a39c', '--rock-sh': '#335a55',
               '--c0': '#ff6b4f', '--c1': '#b98cff', '--c2': '#ffd23f', '--c3': '#9be36b', '--c0d': '#c2442c', '--c1d': '#7d55c4', '--c2d': '#c99a15', '--c3d': '#62a83a' } };
 const MAP_KEYS = [...new Set([...Object.values(MAPCOL).flatMap(o => Object.keys(o)), ...Object.keys(W_BLUE), '--dot', '--grid', '--shadow'])];
