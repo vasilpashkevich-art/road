@@ -20,6 +20,7 @@ console.log(await p.evaluate(()=>__ev(`(()=>{ mapId='minsk'; newGame('minsk'); c
   const ra=canRing(I(8,6)), rb=canRing(I(8,11)); tapRing(I(8,6)); tapRing(I(8,11));
   uz=1.5; placeCamera(true,0); pan.x=cx(idx(9,12))-(view.x+view.w/2); pan.y=cy(idx(9,12))-(view.y+view.h/2); placeCamera(false,0);
   return JSON.stringify({area,okA,okB,r123:roads.has(idx(12,3)),e:[...eOf(idx(12,3))].map(x=>[col_(x),row_(x)]),ra,rb,rings:[...rings],dA:[col_(sA.doorCell),row_(sA.doorCell),nb(sA.doorCell).map(([d,x])=>[d,occ.has(x)?"o":roads.has(x)?"r":doors.has(x)?"d":"."].join(""))],dB:[col_(sB.doorCell),row_(sB.doorCell),eOf(sB.doorCell).size]}); })()`)));
+await p.evaluate(()=>__ev(`(()=>{ uz=2.4; placeCamera(true,0); pan.x=cx(idx(8,10))-(view.x+view.w/2); pan.y=cy(idx(8,10))-(view.y+view.h/2); placeCamera(false,0); $('tip').hidden=true; draw(); return 0; })()`)); await p.waitForTimeout(100); await p.evaluate(()=>__ev(`$('tip').hidden=true; draw(); 0`)); await p.screenshot({path:__dirname+'/shots/ringbend0.png'});
 let worst=0;
 for(let k=0;k<20;k++){ const r=JSON.parse(await p.evaluate(()=>__ev(`(()=>{ for(let i=0;i<400;i++){ paused=false; if(choosing){ choosing=false; $('weekBox').hidden=true; } for(const s of bld.values()) if(s.type==='shop') s.pins=Math.max(s.pins, 5); tick(1/40);} 
    return JSON.stringify({t:Math.round(time), trips, maxStuck:Math.round(Math.max(0,...cars.map(c=>c.stuck||0)))}); })()`)));

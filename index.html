@@ -1463,6 +1463,7 @@ function draw(){
     ctx.strokeStyle = colr; ctx.lineWidth = wd;
     for (const b of bld.values()){ const e = mid(b.i, d4to8(b.door)); ctx.beginPath(); ctx.moveTo(cx(b.i), cy(b.i)); ctx.lineTo(e[0], e[1]); ctx.stroke(); }
     for (const i of roads) if (!mount.has(i)) strokeCell(i);
+    drawRingLayer(edge);
   }
   drawTunnels();
   if (dying.size){ ctx.save(); ctx.globalAlpha = 0.4; ctx.setLineDash([5, 6]); // an erased road still in use: faded and dashed until the cars on it are through
@@ -1477,16 +1478,7 @@ function draw(){
       ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(px, py, 3.8, 0, 7); ctx.fill(); }
     ctx.fillStyle = P.road; ctx.strokeStyle = P.lampRing; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.arc(x, y, CELL * 0.15, 0, 7); ctx.fill(); ctx.stroke(); }
   // roundabouts: one big circle filling the 3×3 square; each arm flares smoothly into its rim, an island with the ring sign in the middle
-  for (const i of rings){ const x = cx(i), y = cy(i), arms = [...eOf(i)].map(j => { const v = D8[dir8(i, j)], l = Math.hypot(v[0], v[1]); return [v[0] / l, v[1] / l]; });
-    const flare = (a, w, col, R, far) => { const px = -a[1], py = a[0], hw = w / 2, sp = 10, d1 = R + far, th = Math.atan2(a[1], a[0]), ph = Math.asin(Math.min(0.98, (hw + sp) / R));
-      const e1 = [x + Math.cos(th + ph) * R, y + Math.sin(th + ph) * R], e2 = [x + Math.cos(th - ph) * R, y + Math.sin(th - ph) * R], dm = R + far * 0.35;
-      ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x + a[0] * d1 + px * hw, y + a[1] * d1 + py * hw);
-      ctx.quadraticCurveTo(x + a[0] * dm + px * hw, y + a[1] * dm + py * hw, e1[0], e1[1]); ctx.lineTo(x, y); ctx.lineTo(e2[0], e2[1]);
-      ctx.quadraticCurveTo(x + a[0] * dm - px * hw, y + a[1] * dm - py * hw, x + a[0] * d1 - px * hw, y + a[1] * d1 - py * hw); ctx.closePath(); ctx.fill(); };
-    for (const a of arms) flare(a, ROAD_W + 3.5, P.roadEdge, RB_DISC + 1.8, 9);
-    ctx.fillStyle = P.roadEdge; ctx.beginPath(); ctx.arc(x, y, RB_DISC + 1.8, 0, 7); ctx.fill();
-    for (const a of arms) flare(a, ROAD_W, P.road, RB_DISC, 11);
-    ctx.fillStyle = P.road; ctx.beginPath(); ctx.arc(x, y, RB_DISC, 0, 7); ctx.fill();
+  for (const i of rings){ const x = cx(i), y = cy(i);
     ctx.fillStyle = P.lotEdge; ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.arc(x, y, RB_ISLE + 3, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
     ctx.fillStyle = P.isle; ctx.beginPath(); ctx.arc(x, y, RB_ISLE, 0, 7); ctx.fill();
     ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3.2; ctx.beginPath(); ctx.arc(x, y, RB_ISLE * 0.42, 0, 7); ctx.stroke(); }
@@ -1687,6 +1679,38 @@ function ringCandidates(){ const key = netV + ':' + roads.size + ':' + rings.siz
   if (key !== ringKey){ ringKey = key; ringSpots = [...roads].filter(i => inPlay(i) && eOf(i).size >= 3 && !canRing(i)); } return ringSpots; }
 function ringHint(){ if (hoverCell >= 0 && roads.has(hoverCell) && !rings.has(hoverCell)){ const w = canRing(hoverCell); if (w) return w; return 'Нажми — кольцо встанет здесь'; }
   return ringCandidates().length ? 'Зелёным отмечены перекрёстки, где поставится кольцо' : 'Кольцо можно поставить на любую дорогу или перекрёсток, если рядом нет домов, воды и другой дороги'; }
+// A roundabout's disc and the flares of its arms, drawn with the roads: the kerb with the road kerbs, the surface with the road surface,
+// so the outline of road and ring is one line, with no seam where they meet. An arm that turns right past the ring flares only a little,
+// so the flare never sticks out past the bend.
+function drawRingLayer(edge){
+  for (const i of rings){ const x = cx(i), y = cy(i);
+    const arms = [...eOf(i)].map(j => { const d = dir8(i, j), v = D8[d], l = Math.hypot(v[0], v[1]), out = at8(j, d), bent = [...eOf(j)].some(k => k !== i && k !== out); return [v[0] / l, v[1] / l, bent]; });
+    // each side of an arm meets the rim with a true fillet: a small circle touching both the rim and the road's own edge (straight or bending),
+    // so the outline runs on with no corner and no step at all
+    const RF = 8, R = RB_DISC, hw = ROAD_W / 2;
+    const armLine = j => { const d = dir8(i, j), others = [...eOf(j)].filter(k => k !== i), a0 = mid(j, OPP8(d)), C2 = [cx(j), cy(j)], pts = [];
+      if (others.length === 1 && dir8(j, others[0]) >= 0 && dir8(j, others[0]) !== d){ const b = mid(j, dir8(j, others[0])); for (let n = 0; n <= 24; n++){ const t = n / 24, u = 1 - t; pts.push([u * u * a0[0] + 2 * u * t * C2[0] + t * t * b[0], u * u * a0[1] + 2 * u * t * C2[1] + t * t * b[1]]); } }
+      else { const b = mid(j, d); for (let n = 0; n <= 24; n++){ const t = n / 24; pts.push([a0[0] + (b[0] - a0[0]) * t, a0[1] + (b[1] - a0[1]) * t]); } }
+      { const last = pts[pts.length - 1], prv = pts[pts.length - 2], dx = last[0] - prv[0], dy = last[1] - prv[1], l = Math.hypot(dx, dy) || 1; // and on past the arm, the way the road leaves it
+        for (let n = 1; n <= 12; n++) pts.push([last[0] + dx / l * CELL * n / 12, last[1] + dy / l * CELL * n / 12]); }
+      return [[x, y], ...pts]; }; // from the ring's middle, out along the arm
+    const near = (P2, q) => { let bd = 1e9, bk = 0; for (let k = 0; k < P2.length; k++){ const dd = Math.hypot(P2[k][0] - q[0], P2[k][1] - q[1]); if (dd < bd){ bd = dd; bk = k; } } return [bd, bk]; };
+    const fillets = j => { const L = armLine(j), th0 = Math.atan2(cy(j) - y, cx(j) - x), out = [];
+      for (const sg of [1, -1]){ let prev = null, got = null;
+        for (let n = 0; n <= 180; n++){ const th = th0 + sg * n * Math.PI / 360, fc = [x + Math.cos(th) * (R + RF), y + Math.sin(th) * (R + RF)], [dd, k] = near(L, fc);
+          if (dd >= hw + RF){ if (prev && prev[0] < hw + RF){ const f = (hw + RF - prev[0]) / (dd - prev[0]); got = { fc: [prev[1][0] + (fc[0] - prev[1][0]) * f, prev[1][1] + (fc[1] - prev[1][1]) * f], k }; } break; }
+          prev = [dd, fc]; }
+        if (got){ const fc = got.fc, q = L[got.k], m = [(fc[0] * 2 + q[0] + x) / 4 - fc[0], (fc[1] * 2 + q[1] + y) / 4 - fc[1]], ml = Math.hypot(m[0], m[1]) || 1, pm = [fc[0] + m[0] / ml * RF, fc[1] + m[1] / ml * RF];
+          if (near(L, pm)[0] < hw - 0.5 || Math.hypot(pm[0] - x, pm[1] - y) < R - 0.5) got = null; } // a fillet that would bite into the road (the inside of a sharp bend) is left out
+        out.push(got); }
+      return { L, f: out }; };
+    const draw = (F, kerb) => { const k0 = kerb ? 1.75 : 0, r0 = RF - k0; ctx.fillStyle = kerb ? P.roadEdge : P.road;
+      for (const g of F.f){ if (!g) continue; const fc = g.fc, q = F.L[g.k], toC = Math.atan2(y - fc[1], x - fc[0]), toQ = Math.atan2(q[1] - fc[1], q[0] - fc[0]); let d = toQ - toC; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
+        const pts = []; for (let n = 0; n <= 12; n++){ const th = toC + d * n / 12; pts.push([fc[0] + Math.cos(th) * r0, fc[1] + Math.sin(th) * r0]); }
+        ctx.beginPath(); ctx.moveTo(x, y); for (const p2 of pts) ctx.lineTo(p2[0], p2[1]); for (let k = g.k; k >= 0; k--) ctx.lineTo(F.L[k][0], F.L[k][1]); ctx.closePath(); ctx.fill(); } }; // the corner between rim, fillet and the road's middle line
+    const Fs = [...eOf(i)].map(fillets);
+    if (edge){ for (const F of Fs) draw(F, true); ctx.fillStyle = P.roadEdge; ctx.beginPath(); ctx.arc(x, y, RB_DISC + 1.8, 0, 7); ctx.fill(); }
+    else { for (const F of Fs) draw(F, false); ctx.fillStyle = P.road; ctx.beginPath(); ctx.arc(x, y, RB_DISC, 0, 7); ctx.fill(); } } }
 function drawRingSpots(){ const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
   for (const i of ringCandidates()){ if (i === hoverCell) continue; const x = cx(i), y = cy(i);
     ctx.globalAlpha = 0.16; ctx.fillStyle = P.lampGo; ctx.beginPath(); ctx.arc(x, y, RB_DISC + 6, 0, 7); ctx.fill();
