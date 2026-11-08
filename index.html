@@ -196,7 +196,7 @@ const WEEK = 60;
 const T = { startRoads: 25, weekRoads: 15, offerRoads: 12,
   cross3: 0.45, cross4: 0.3, grow: 200, // speed share across a plain crossing
   pinBase: 8, pinRand: 4, ramp: 1100, rampFloor: 0.45, pinMax: 8, overflow: 22,
-  house: 15, houseRand: 8, shop: 38, shopRand: 15, firstHouse: 10, firstShop: 30 };
+  house: 15, houseRand: 8, shop: 62, shopRand: 15, firstHouse: 10, firstShop: 30 };
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 const $ = id => document.getElementById(id);
 let W = 0, Hh = 0, dpr = 1, scale = 1, offX = 0, offY = 0, cols = 24, rows = 14;
@@ -1053,11 +1053,19 @@ function tick(dt){
       else b.overT = Math.max(0, b.overT - dt * 2);
     } }
   spawnHouseT -= dt; spawnShopT -= dt;
+  const nH = [...bld.values()].filter(b => b.type === 'house').length, nS = [...bld.values()].filter(b => b.type === 'shop' && !isTail(b)).length;
+  const perShop = 2 + 3 * Math.max(0, Math.min(1, (time - 300) / 1500)); // houses per shop: 2 in the first minutes, 5 after half an hour, as in Mini Motorways
+  if (nH >= Math.ceil(perShop * nS) + 1){ spawnHouseT = Math.max(spawnHouseT, 4); nextHouse = null; } // enough houses for now: wait for the next shop
   if (spawnHouseT <= 8 && !nextHouse){ nextHouse = planHouses(neediestColor()); }
   if (spawnHouseT <= 0){ spawnHouses(nextHouse ? nextHouse.c : neediestColor()); spawnHouseT = T.house + Math.random() * T.houseRand; }
   if (spawnShopT <= 0){
-    let c = Math.floor(Math.random() * colorsInPlay), fresh = false;
-    if (colorsInPlay < 4 && Math.random() < 0.5){ c = colorsInPlay; fresh = true; }
+    // colours as in Mini Motorways: the second shop always brings a second colour, then a new colour now and then,
+    // otherwise the colour with the fewest shops, and never the same colour twice in a row while there is a choice
+    const nShops = [...bld.values()].filter(b => b.type === 'shop' && !isTail(b)), lastC = nShops.length ? nShops[nShops.length - 1].color : -1;
+    let c, fresh = false;
+    if (colorsInPlay < 2 || (colorsInPlay < 4 && nShops.length >= colorsInPlay * 2 && Math.random() < 0.6)){ c = colorsInPlay; fresh = true; }
+    else { const cnt = c0 => nShops.filter(b => b.color === c0).length; const opts = []; for (let k = 0; k < colorsInPlay; k++) if (k !== lastC || colorsInPlay === 1) opts.push(k);
+      const lo = Math.min(...opts.map(cnt)); const best = opts.filter(k => cnt(k) === lo); c = best[Math.floor(Math.random() * best.length)]; }
     let done = false;
     for (let t = 0; t < 8 && !done; t++){ const i = freeSpot(); if (i < 0 || !place(i, 'shop', c)) continue;
       // a shop never stands without its own houses: it always brings at least one close by (a new colour brings two)
