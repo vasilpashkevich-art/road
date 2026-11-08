@@ -472,8 +472,12 @@ function farSpot(c, shops){ // a new neighbourhood somewhere else in town, well 
   for (let r = area.r0; r < area.r1; r++) for (let cc = area.c0; cc < area.c1; cc++){ const i = idx(cc, r); if (!canHouse(i)) continue;
     let near = 0; for (let ec = -1; ec <= 1; ec++) for (let er = -1; er <= 1; er++) if (inb(cc + ec, r + er) && occ.has(idx(cc + ec, r + er))) near++; if (near) continue;
     const d = Math.min(99, ...shops.map(s0 => Math.max(Math.abs(col_(s0.doorCell) - cc), Math.abs(row_(s0.doorCell) - r)))); if (d < 6) continue;
-    cand.push(i); }
-  return cand.length ? cand[Math.floor(Math.random() * cand.length)] : -1; }
+    // better still: across the river from its shop, or behind houses of other colours, so the road has to find a way through
+    let w = 1; const sh0 = shops[0]; if (sh0 && water.size && landSteps(sh0.doorCell, i, 40) === Infinity) w += 2;
+    for (let ec = -3; ec <= 3; ec++) for (let er = -3; er <= 3; er++){ const o = inb(cc + ec, r + er) ? occ.get(idx(cc + ec, r + er)) : null; if (o && o.color !== c){ w += 0.4; } }
+    cand.push([i, w]); }
+  if (!cand.length) return -1; let tot = 0; for (const q of cand) tot += q[1]; let r0 = Math.random() * tot;
+  for (const q of cand){ r0 -= q[1]; if (r0 <= 0) return q[0]; } return cand[cand.length - 1][0]; }
 function newClusterSpot(c){ // usually a few cells from a shop of this colour; about half the time somewhere far off instead, as in Mini Motorways
   const shops = [...bld.values()].filter(b => b.type === 'shop' && b.color === c); if (!shops.length) return freeSpot();
   if (Math.random() < 0.5 && time > 60){ const f = farSpot(c, shops); if (f >= 0) return f; }
