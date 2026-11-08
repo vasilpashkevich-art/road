@@ -1326,11 +1326,24 @@ function drawShop(b, colr, dk, e){
   const parts = b.twin ? [b, b.twin] : [b], pads = [], tongues = [];
   for (const s0 of parts){ const T1 = SHOP_TYPES[s0.size]; for (const r of [T1.lot, ...T1.bld]) pads.push(boxOf(s0, r[0], r[1], r[2], r[3], 1)); tongues.push([shopPt(s0, 1.5, -0.5), shopPt(s0, 1.5, 0.35)]); }
   if (b.twin){ const all = pads.splice(0); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const B of all){ x0 = Math.min(x0, B[0]); y0 = Math.min(y0, B[1]); x1 = Math.max(x1, B[0] + B[2]); y1 = Math.max(y1, B[1] + B[3]); } pads.push([x0, y0, x1 - x0, y1 - y0]); } // one pad under both halves
-  for (const [grow, col] of [[3, P.lotEdge], [0, P.road]]){ ctx.fillStyle = col; // the pad is road: the drive runs straight on into it, one colour
+  for (const [grow, col] of [[1.75, P.roadEdge === P.road ? P.lotEdge : P.roadEdge], [0, P.road]]){ // the pad's frame is the road's own kerb, same colour and width
+    ctx.fillStyle = col; // the pad is road: the drive runs straight on into it, one colour
     for (const B of pads){ rr(B[0] - grow, B[1] - grow, B[2] + grow * 2, B[3] + grow * 2, 11 + grow); ctx.fill(); } }
-  ctx.lineCap = 'butt'; // the entrance, as in Mini Motorways: a framed neck of the lot running out to the road
-  for (const [w, col] of [[ROAD_W + 6, P.lotEdge], [ROAD_W, P.road]]){ ctx.strokeStyle = col; ctx.lineWidth = w; for (const [a, z] of tongues){ ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(z[0], z[1]); ctx.stroke(); } }
-  ctx.fillStyle = P.road; for (const B of pads){ rr(B[0], B[1], B[2], B[3], 11); ctx.fill(); } // the neck opens into the lot without a seam
+  // the entrance: the road itself runs into the pad; only the kerb is opened where it comes in, so there is no seam
+  ctx.lineCap = 'butt'; ctx.strokeStyle = P.road; ctx.lineWidth = ROAD_W;
+  for (const s0 of parts){ const a = shopPt(s0, 1.5, -0.08), z = shopPt(s0, 1.5, 0.3); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(z[0], z[1]); ctx.stroke(); }
+  // the pad's side the road comes in on is straight, and the road flares into it with soft fillets, as at any road junction
+  { const kerb = P.roadEdge === P.road ? P.lotEdge : P.roadEdge, k = 1.75 / CELL, hw = ROAD_W / 2 / CELL, r = 0;
+    for (const s0 of parts){ const lt = SHOP_TYPES[s0.size].lot, u0 = Math.max(lt[0], 1.5 - 0.5) + 1 / CELL, u1 = Math.min(lt[2], 1.5 + 0.5) - 1 / CELL, poly = (pts) => { ctx.beginPath(); pts.forEach((q, n) => { const w = shopPt(s0, q[0], q[1]); n ? ctx.lineTo(w[0], w[1]) : ctx.moveTo(w[0], w[1]); }); };
+      ctx.fillStyle = kerb; poly([[u0 - k, -k], [u1 + k, -k], [u1 + k, 0.35], [u0 - k, 0.35]]); ctx.fill(); // square off the corners on the entrance side
+      ctx.fillStyle = P.road; poly([[u0, 0], [u1, 0], [u1, 0.4], [u0, 0.4]]); ctx.fill();
+      if (r > 0) for (const sg of [-1, 1]){ const ue = 1.5 + sg * hw, arc = []; // fillet between the road's edge and the pad's edge
+        for (let n = 0; n <= 8; n++){ const t = n / 8 * Math.PI / 2; arc.push([ue + sg * (r - r * Math.cos(t)), -(r - r * Math.sin(t))]); } // from (ue, -r) round to (ue + sg r, 0)
+        ctx.fillStyle = P.road; poly([[ue, 0.02], ...arc.map(q => [q[0], q[1]]), [ue + sg * r, 0.02]]); ctx.fill();
+        ctx.strokeStyle = kerb; ctx.lineWidth = 1.75; ctx.lineCap = 'butt';
+        const arcK = []; for (let n = 0; n <= 8; n++){ const t = n / 8 * Math.PI / 2, R = r + k / 2; arcK.push([ue + sg * (r - R * Math.cos(t)), -(r - R * Math.sin(t))]); }
+        poly(arcK); ctx.stroke(); }
+      ctx.strokeStyle = P.road; ctx.lineWidth = ROAD_W; const a = shopPt(s0, 1.5, -0.08), z = shopPt(s0, 1.5, 0.3); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(z[0], z[1]); ctx.stroke(); } } // the road runs on through the opened kerb
   if (b.twin && !b.lvl){ const r = SHOP_TYPES.twinB.bld[0], B = boxOf(b.twin, r[0], r[1], r[2], r[3], 6); // the spare plot, waiting for the shop to grow
     ctx.strokeStyle = P.lotEdge; ctx.globalAlpha = 0.7; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); rr(B[0], B[1], B[2], B[3], 4); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
   ctx.strokeStyle = colr; ctx.globalAlpha = 0.75; ctx.lineWidth = 2; ctx.lineCap = 'round';
