@@ -196,10 +196,10 @@ const CELL = 40, H = CELL / 2;
 const LANE = CELL * 0.15, CAR_L = CELL * 0.40, CAR_W = CELL * 0.21; // two lanes never let passing cars touch
 const STOP = CAR_L / 2 + 2; // a waiting car keeps its whole body short of the crossing
 const VMAX = CELL * 2.2, ACC = CELL * 4.5, DEC = CELL * 9, MIN_GAP = CELL * 0.5, LOOK = CELL * 0.9, RING_R = CELL * 0.45, RING_DISC = CELL * 0.68, RING_ISLE = CELL * 0.28; // cars circle at RING_R; the white disc and the island around it
-const WEEK = 60;
+const WEEK = 90; // a week lasts a minute and a half: the extras (rings, highways, lights) come about a third less often
 // Pace of the city — every number that decides how fast pressure grows lives here.
 // Tuned on 32 autoplayer games (3×3 parking-lot shops, big roundabouts, zero body contacts): calm first ~8 min, loss around 9 min for the bot.
-const T = { startRoads: 25, weekRoads: 15, offerRoads: 12,
+const T = { startRoads: 25, weekRoads: 20, offerRoads: 12,
   cross3: 0.7, cross4: 0.6, grow: 200, // speed share across a plain crossing
   pinBase: 8, pinRand: 4, ramp: 1100, rampFloor: 0.45, pinMax: 8, overflow: 22,
   house: 15, houseRand: 8, shop: 62, shopRand: 15, firstHouse: 10, firstShop: 30 };
