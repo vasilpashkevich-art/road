@@ -1902,7 +1902,7 @@ const toCell = (ev, inner) => { const r = cv.getBoundingClientRect(); const x = 
   // while drawing, a cell counts only once the finger is near its middle, so cutting a corner gives a clean 45° road
   if (inner && Math.hypot(x - c - 0.5, y - rw - 0.5) > 0.4) return -2;
   return idx(c, rw); };
-const touches = new Map(); let pinch = null, midPan = null;
+const touches = new Map(); let pinch = null, midPan = null, strokeDir = -1;
 function cancelStroke(){ // the first finger had started a road a moment before the second came down: take it back
   if (stroke && stroke.added) for (const [a, b] of stroke.added.reverse()){ if (!hasEdge(a, b)) continue; if (!freeEdge(a, b)) budget++; delEdge(a, b); }
   if (stroke && stroke.tunnels) for (const id of stroke.tunnels){ for (const [c, tid] of [...tunnelOf]) if (tid === id){ tunnelOf.delete(c); for (const j of [...eOf(c)]) delEdge(c, j); } tunnelsN++; }
@@ -1923,7 +1923,7 @@ cv.addEventListener('pointerdown', ev => {
   if (ev.button !== 2 && mode === 'light'){ if (i >= 0) tapLight(i); return; }
   if ((mode === 'erase' || ev.button === 2) && eraseHwAt(ev)) return;
   cv.setPointerCapture(ev.pointerId); drawing = true; drawErase = mode === 'erase' || ev.button === 2;
-  stroke = { run: null, warned: false, added: [], bridges: [], tunnels: [] }; last = -1; apply(i); });
+  stroke = { run: null, warned: false, added: [], bridges: [], tunnels: [] }; last = -1; strokeDir = -1; apply(i); });
 cv.addEventListener('pointermove', ev => {
   if (touches.has(ev.pointerId)) touches.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
   if (pinch && touches.size === 2){ const [p1, p2] = [...touches.values()], r = cv.getBoundingClientRect();
@@ -1934,7 +1934,15 @@ cv.addEventListener('pointermove', ev => {
   if (bendRd){ moveBend(ev); return; }
   if (moveHw){ const r = cv.getBoundingClientRect(); moveHw.x = (ev.clientX - r.left - offX) / scale; moveHw.y = (ev.clientY - r.top - offY) / scale; moveHw.to = toCell(ev, false); return; }
   hoverCell = toCell(ev, false);
-  if (!drawing) return; const i = toCell(ev, true);
+  if (!drawing) return;
+  if (last >= 0 && !drawErase){ // the road follows the direction the finger moves, snapped to the nearest of the 8 ways: a rough diagonal swipe gives a clean 45° road
+    const r = cv.getBoundingClientRect(), x = (ev.clientX - r.left - offX) / scale / CELL, y = (ev.clientY - r.top - offY) / scale / CELL;
+    for (let n = 0; n < 6; n++){ const dx = x - col_(last) - 0.5, dy = y - row_(last) - 0.5, dist = Math.hypot(dx, dy); if (dist < 0.92) break;
+      let d = ((Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) + 2) % 8 + 8) % 8;
+      if (strokeDir >= 0 && d !== strokeDir){ const a0 = Math.atan2(D8[strokeDir][1], D8[strokeDir][0]); let da = Math.atan2(dy, dx) - a0; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2; if (Math.abs(da) < Math.PI * 0.2) d = strokeDir; } // keep going the same way through small wobbles
+      const nx = at8(last, d); if (nx < 0 || !inPlay(nx)) break; const was = last; apply(nx); if (last === was) break; strokeDir = d; }
+    return; }
+  const i = toCell(ev, true);
   if (i < 0 || i === last) return; if (last >= 0 && !adj8(last, i)) walk(last, i); else apply(i); });
 const up = ev => { // a stroke released at the edge of a cell still takes that cell
   touches.delete(ev.pointerId); if (pinch){ if (touches.size < 2) pinch = null; return; } if (midPan){ midPan = null; return; } if (bendHw){ endBend(); return; } if (moveHw){ endMove(); return; } if (bendRd){ bendRd = null; saveNow(); return; }
