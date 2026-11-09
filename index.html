@@ -511,19 +511,20 @@ function farSpot(c, shops, dMin = 6, dMax = 12){ // a new neighbourhood somewher
   for (const q of cand){ r0 -= q[1]; if (r0 <= 0) return q[0]; } return cand[cand.length - 1][0]; }
 function newClusterSpot(c){ // usually a few cells from a shop of this colour; about half the time somewhere far off instead, as in Mini Motorways
   const shops = [...bld.values()].filter(b => b.type === 'shop' && b.color === c); if (!shops.length) return freeSpot();
-  if (Math.random() < 0.25 && time > 180){ const f = farSpot(c, shops, 6, 10); if (f >= 0) return f; }
+  if (Math.random() < 0.4 && time > 120){ const f = farSpot(c, shops, 6, 12); if (f >= 0) return f; }
   const sh = shops[Math.floor(Math.random() * shops.length)], c0 = col_(sh.doorCell), r0 = row_(sh.doorCell), cand = [];
-  for (let dc = -6; dc <= 6; dc++) for (let dr = -6; dr <= 6; dr++){ const d = Math.max(Math.abs(dc), Math.abs(dr)); if (d < 2 || d > 5 || !inb(c0 + dc, r0 + dr)) continue; const i = idx(c0 + dc, r0 + dr);
+  for (let dc = -7; dc <= 7; dc++) for (let dr = -7; dr <= 7; dr++){ const d = Math.max(Math.abs(dc), Math.abs(dr)); if (d < 2 || d > 7 || !inb(c0 + dc, r0 + dr)) continue; const i = idx(c0 + dc, r0 + dr);
     if (!canHouse(i)) continue; let near = 0; for (let ec = -1; ec <= 1; ec++) for (let er = -1; er <= 1; er++) if (inb(c0 + dc + ec, r0 + dr + er) && occ.has(idx(c0 + dc + ec, r0 + dr + er))) near++;
-    if (near) continue; cand.push([i, d + Math.random() * 1.5]); }
+    if (near) continue; cand.push([i, d * 0.5 + Math.random() * 4]); } // spread out: any distance 2–7, not just the nearest free spot
   cand.sort((a, b) => a[1] - b[1]); for (const [i] of cand.slice(0, 8).sort(() => Math.random() - 0.5)) if (landSteps(sh.doorCell, i, 14) < Infinity) return i;
   return cand.length ? cand[0][0] : freeSpot(); }
 // The next houses are chosen a few seconds ahead and shown as little coloured dots on the ground, as in Mini Motorways.
 let nextHouse = null;
 function planHouses(c){
   const mates = [...bld.values()].filter(b => b.type === 'house' && b.color === c).sort(() => Math.random() - 0.5);
-  if (Math.random() < 0.75) for (const h of mates){ if (clusterOf(h).size >= 6) continue; const j = besideHouse(h); if (j >= 0) return { c, i: j, want: h.door, pair: false, t: 0 }; }
-  const i = newClusterSpot(c); return i < 0 ? null : { c, i, pair: Math.random() < 0.65, t: 0 }; }
+  // as in Mini Motorways the town is scattered: mostly a lone house on its own spot, now and then one beside a neighbour of its colour (never a big block)
+  if (Math.random() < 0.25) for (const h of mates){ if (clusterOf(h).size >= 3) continue; const j = besideHouse(h); if (j >= 0) return { c, i: j, want: h.door, pair: false, t: 0 }; }
+  const i = newClusterSpot(c); return i < 0 ? null : { c, i, pair: Math.random() < 0.2, t: 0 }; }
 function spawnHouses(c){
   const p = nextHouse && nextHouse.c === c && canHouse(nextHouse.i) ? nextHouse : planHouses(c); nextHouse = null; if (!p) return;
   if (!place(p.i, 'house', c, p.want)) return;
