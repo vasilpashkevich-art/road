@@ -1910,7 +1910,7 @@ function cancelStroke(){ // the first finger had started a road a moment before 
   drawing = false; last = -1; stroke = null; }
 cv.addEventListener('pointerdown', ev => {
   touches.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-  if (touches.size === 2){ cancelStroke(); const [p1, p2] = [...touches.values()]; pinch = { d: Math.hypot(p1.x - p2.x, p1.y - p2.y), x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }; return; }
+  if (touches.size === 2){ cancelStroke(); midPan = null; const [p1, p2] = [...touches.values()]; pinch = { d: Math.hypot(p1.x - p2.x, p1.y - p2.y), x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }; return; }
   if (touches.size > 2) return;
   if (ev.button === 1){ midPan = { x: ev.clientX, y: ev.clientY }; cv.setPointerCapture(ev.pointerId); ev.preventDefault(); return; }
   if (over || choosing) return;
@@ -1922,6 +1922,7 @@ cv.addEventListener('pointerdown', ev => {
   if (ev.button !== 2 && mode === 'hw'){ if (i >= 0) tapHw(i); return; }
   if (ev.button !== 2 && mode === 'light'){ if (i >= 0) tapLight(i); return; }
   if ((mode === 'erase' || ev.button === 2) && eraseHwAt(ev)) return;
+  if (ev.pointerType === 'touch' && mode === 'draw' && hwStart < 0 && (i < 0 || (!roads.has(i) && !occ.has(i) && !doors.has(i)))){ midPan = { x: ev.clientX, y: ev.clientY }; cv.setPointerCapture(ev.pointerId); return; } // on a phone a finger on empty ground moves the map; a road starts from a road, a house or a shop
   cv.setPointerCapture(ev.pointerId); drawing = true; drawErase = mode === 'erase' || ev.button === 2;
   stroke = { run: null, warned: false, added: [], bridges: [], tunnels: [] }; last = -1; strokeDir = -1; apply(i); });
 cv.addEventListener('pointermove', ev => {
