@@ -147,6 +147,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 @media (max-width:560px){ .dock button{padding:5px 8px;font-size:12px} .dock{gap:4px} }
 .offers button{flex-direction:column;border-radius:14px;padding:12px 16px;min-width:120px;font-size:15px}
 .offers button small{font-weight:600;color:var(--muted);font-size:12px;max-width:140px}
+/* a phone held sideways: a slim top bar, the tools in a column on the left, so the map gets the whole height */
+@media (orientation: landscape) and (max-height: 520px){
+  .bar{padding-block:3px;gap:2px 10px;font-size:12px} .bar h1{font-size:14px} .bar button{padding:3px 10px;font-size:12px} .score b{font-size:14px}
+  .dock{left:max(8px,env(safe-area-inset-left,0px));top:50%;bottom:auto;transform:translateY(-50%);flex-direction:column;flex-wrap:nowrap;align-items:stretch;
+    max-height:calc(100% - 16px);overflow-y:auto;gap:4px;padding:5px;border-radius:14px}
+  .dock button{padding:5px 9px;font-size:12px;justify-content:space-between}
+  .toast{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+  .zoom button{width:34px;height:34px;font-size:19px} }
 @media (prefers-reduced-motion: reduce){ * {transition:none!important} }
 </style>
 
@@ -193,9 +201,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 (() => {
 'use strict';
 const CELL = 40, H = CELL / 2;
-const LANE = CELL * 0.15, CAR_L = CELL * 0.40, CAR_W = CELL * 0.21; // two lanes never let passing cars touch
+const LANE = CELL * 0.115, CAR_L = CELL * 0.33, CAR_W = CELL * 0.165; // two lanes never let passing cars touch
 const STOP = CAR_L / 2 + 2; // a waiting car keeps its whole body short of the crossing
-const VMAX = CELL * 2.2, ACC = CELL * 4.5, DEC = CELL * 9, MIN_GAP = CELL * 0.5, LOOK = CELL * 0.9, RING_R = CELL * 0.45, RING_DISC = CELL * 0.68, RING_ISLE = CELL * 0.28; // cars circle at RING_R; the white disc and the island around it
+const VMAX = CELL * 2.2, ACC = CELL * 4.5, DEC = CELL * 9, MIN_GAP = CELL * 0.42, LOOK = CELL * 0.8, RING_R = CELL * 0.45, RING_DISC = CELL * 0.68, RING_ISLE = CELL * 0.28; // cars circle at RING_R; the white disc and the island around it
 const WEEK = 90; // a week lasts a minute and a half: the extras (rings, highways, lights) come about a third less often
 // Pace of the city — every number that decides how fast pressure grows lives here.
 // Tuned on 32 autoplayer games (3×3 parking-lot shops, big roundabouts, zero body contacts): calm first ~8 min, loss around 9 min for the bot.
@@ -273,7 +281,7 @@ const dir8 = (a, b) => { const dc = col_(b) - col_(a), dr = row_(b) - row_(a); r
 let roadOff = new Map(); const OFF_MAX = CELL * 0.34;
 const offOf = i => roadOff.get(i) || [0, 0];
 const ctr = i => { const o = offOf(i); return [cx(i) + o[0], cy(i) + o[1]]; };
-const ROAD_W = CELL * 0.52; // road width (two lanes and a hair of kerb)
+const ROAD_W = CELL * 0.40; // road width (two lanes and a hair of kerb)
 const mid = (i, d) => [cx(i) + D8[d][0] * H, cy(i) + D8[d][1] * H];
 const midO = (i, d) => { const m = mid(i, d), j = at8(i, d), a = offOf(i), b = j >= 0 ? offOf(j) : [0, 0]; return [m[0] + (a[0] + b[0]) / 2, m[1] + (a[1] + b[1]) / 2]; };
 // Smooth corners: a plain bend between two plain straight pieces is drawn (and driven) as one wide curve from the middle of one straight cell
@@ -1304,20 +1312,21 @@ function placeCamera(snap, dt){
   const want = { x: area.c0 * CELL, y: area.r0 * CELL, w: (area.c1 - area.c0) * CELL, h: (area.r1 - area.r0) * CELL };
   if (!view || snap) view = { ...want };
   else { const k = Math.min(1, (dt || 0) * 0.35); for (const key of ['x', 'y', 'w', 'h']) view[key] += (want[key] - view[key]) * k; } // the town opens up slowly, over several seconds, as the camera eases out
-  const dock = document.querySelector('.dock'), padB = (dock ? dock.offsetHeight : 48) + 18; // room for the tool dock
-  const fit = Math.min(W / (view.w + 16), (Hh - padB) / (view.h + 16)); scale = fit * uz; viewH = Hh - padB;
+  const dock = document.querySelector('.dock'), side = dock && dock.offsetHeight > dock.offsetWidth; // a phone on its side: the tools stand in a column on the left
+  const padB = side ? 8 : (dock ? dock.offsetHeight : 48) + 18; padL = side ? dock.offsetWidth + 14 : 0; // room for the tool dock
+  const fit = Math.min((W - padL - (side ? 56 : 0)) / (view.w + 16), (Hh - padB) / (view.h + 16)); scale = fit * uz; viewH = Hh - padB;
   // the player's zoom and pan sit on top of the framing, and never let the map slide out of sight
-  const hw2 = W / scale / 2, hh2 = viewH / scale / 2, mx = view.x + view.w / 2, my = view.y + view.h / 2;
+  const hw2 = (W - padL) / scale / 2, hh2 = viewH / scale / 2, mx = view.x + view.w / 2, my = view.y + view.h / 2;
   const lim = (v, half, size) => size / 2 > half ? Math.max(-(size / 2 - half), Math.min(size / 2 - half, v)) : 0;
   pan.x = lim(pan.x, hw2, view.w + 16); pan.y = lim(pan.y, hh2, view.h + 16);
-  offX = W / 2 - (mx + pan.x) * scale; offY = viewH / 2 - (my + pan.y) * scale;
+  offX = padL + (W - padL) / 2 - (mx + pan.x) * scale; offY = viewH / 2 - (my + pan.y) * scale;
 }
-let uz = 1, pan = { x: 0, y: 0 }, viewH = 0;
+let uz = 1, pan = { x: 0, y: 0 }, viewH = 0, padL = 0;
 function zoomAt(sx, sy, factor){ // keep the map point under the finger or cursor where it is
   const wx = (sx - offX) / scale, wy = (sy - offY) / scale; uz = Math.max(1, Math.min(3, uz * factor));
   placeCamera(false, 0);
   const mx = view.x + view.w / 2, my = view.y + view.h / 2;
-  pan.x = (W / 2 - (sx - wx * scale)) / scale - mx; pan.y = (viewH / 2 - (sy - wy * scale)) / scale - my;
+  pan.x = (padL + (W - padL) / 2 - (sx - wx * scale)) / scale - mx; pan.y = (viewH / 2 - (sy - wy * scale)) / scale - my;
   if (uz === 1){ pan.x = 0; pan.y = 0; } placeCamera(false, 0); }
 function panBy(dx, dy){ pan.x -= dx / scale; pan.y -= dy / scale; placeCamera(false, 0); }
 function rr(x, y, w, h, r){ ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
@@ -1468,7 +1477,7 @@ function drawShop(b, colr, dk, e){
   { const H = shopH(b); ctx.fillStyle = P.shadow; for (const r of T0.bld){ const B = joinedBox(b, r, [T0.lot], 0); rr(B[0] + H * 0.7, B[1] + H * 0.5, B[2], B[3], 8); ctx.fill(); } } // the building's shadow falls on the ground, under the lot
   // as in Mini Motorways: the lot and the building sit on one pad with a light frame, and a short tongue of the pad runs out to the road
   const parts = b.twin ? [b, b.twin] : [b], pads = [], tongues = [];
-  for (const s0 of parts){ const T1 = SHOP_TYPES[s0.size]; for (const r of [T1.lot, ...T1.bld]) pads.push(boxOf(s0, r[0], r[1], r[2], r[3], 1)); tongues.push([shopPt(s0, 1.5, -0.5), shopPt(s0, 1.5, 0.35)]); }
+  for (const s0 of parts){ const T1 = SHOP_TYPES[s0.size]; for (const r of [T1.lot, ...T1.bld]) pads.push(boxOf(s0, r[0], r[1], r[2], r[3], PAD_IN)); tongues.push([shopPt(s0, 1.5, -0.5), shopPt(s0, 1.5, 0.35)]); }
   if (b.twin){ const all = pads.splice(0); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const B of all){ x0 = Math.min(x0, B[0]); y0 = Math.min(y0, B[1]); x1 = Math.max(x1, B[0] + B[2]); y1 = Math.max(y1, B[1] + B[3]); } pads.push([x0, y0, x1 - x0, y1 - y0]); } // one pad under both halves
   for (const [grow, col] of [[1.75, P.roadEdge === P.road ? P.lotEdge : P.roadEdge], [0, P.road]]){ // the pad's frame is the road's own kerb, same colour and width
     ctx.fillStyle = col; // the pad is road: the drive runs straight on into it, one colour
@@ -1478,7 +1487,7 @@ function drawShop(b, colr, dk, e){
   for (const s0 of parts){ const a = shopPt(s0, 1.5, -0.08), z = shopPt(s0, 1.5, 0.3); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(z[0], z[1]); ctx.stroke(); }
   // the pad's side the road comes in on is straight, and the road flares into it with soft fillets, as at any road junction
   { const kerb = P.roadEdge === P.road ? P.lotEdge : P.roadEdge, k = 1.75 / CELL, hw = ROAD_W / 2 / CELL, r = 0;
-    for (const s0 of parts){ const lt = SHOP_TYPES[s0.size].lot, u0 = Math.max(lt[0], 1.5 - 0.5) + 1 / CELL, u1 = Math.min(lt[2], 1.5 + 0.5) - 1 / CELL, poly = (pts) => { ctx.beginPath(); pts.forEach((q, n) => { const w = shopPt(s0, q[0], q[1]); n ? ctx.lineTo(w[0], w[1]) : ctx.moveTo(w[0], w[1]); }); };
+    for (const s0 of parts){ const lt = SHOP_TYPES[s0.size].lot, u0 = Math.max(lt[0], 1.5 - 0.5) + PAD_IN / CELL, u1 = Math.min(lt[2], 1.5 + 0.5) - PAD_IN / CELL, poly = (pts) => { ctx.beginPath(); pts.forEach((q, n) => { const w = shopPt(s0, q[0], q[1]); n ? ctx.lineTo(w[0], w[1]) : ctx.moveTo(w[0], w[1]); }); };
       ctx.fillStyle = kerb; poly([[u0 - k, -k], [u1 + k, -k], [u1 + k, 0.35], [u0 - k, 0.35]]); ctx.fill(); // square off the corners on the entrance side
       ctx.fillStyle = P.road; poly([[u0, 0], [u1, 0], [u1, 0.4], [u0, 0.4]]); ctx.fill();
       if (r > 0) for (const sg of [-1, 1]){ const ue = 1.5 + sg * hw, arc = []; // fillet between the road's edge and the pad's edge
@@ -1499,7 +1508,7 @@ function drawShop(b, colr, dk, e){
 const SHOP_H = 7;
 // The lot and the building meet edge to edge: on the side where they touch the lot runs on under the wall and the building has no margin,
 // so the shop reads as one block. pads: inset in cells for the sides u0, v0, u1, v1.
-const PADC = 3 / CELL;
+const PADC = 7 / CELL, PAD_IN = 5; // the building stands 7 px in from its cells, the shop's pad 5 px: a slim frame, and a smaller shop
 function touchSides(a, r){ const ov = (x0, x1, y0, y1) => Math.min(x1, y1) - Math.max(x0, y0) > 0.01; // which sides of rect a touch rect r
   return [Math.abs(a[0] - r[2]) < 0.01 && ov(a[1], a[3], r[1], r[3]), Math.abs(a[1] - r[3]) < 0.01 && ov(a[0], a[2], r[0], r[2]),
           Math.abs(a[2] - r[0]) < 0.01 && ov(a[1], a[3], r[1], r[3]), Math.abs(a[3] - r[1]) < 0.01 && ov(a[0], a[2], r[0], r[2])]; }
@@ -1609,7 +1618,7 @@ function draw(){
   for (const b of bld.values()){ const x = cx(b.i), y = cy(b.i), colr = P.col[b.color], dk = P.dark[b.color];
     const pop = Math.min(1, b.t / 0.35), e = 1 - Math.pow(1 - pop, 3);
     ctx.save(); ctx.translate(x, y); ctx.scale(e, e);
-    if (b.type === 'house'){ const s = CELL * 0.62, hh = 6; // a block: the roof in the house's colour, the wall below it a shade darker
+    if (b.type === 'house'){ const s = CELL * 0.5, hh = 5; // a block: the roof in the house's colour, the wall below it a shade darker
       ctx.fillStyle = P.shadow; rr(-s/2 + 4, -s/2 + 3, s, s + 2, 6); ctx.fill();
       { const want = Math.atan2(DIRS[b.door][1], DIRS[b.door][0]); if (b.rot === undefined) b.rot = want;
         let dd = want - b.rot; while (dd > Math.PI) dd -= Math.PI * 2; while (dd < -Math.PI) dd += Math.PI * 2; b.rot += dd * 0.25; // the entrance swings round smoothly to a new side
@@ -1636,6 +1645,8 @@ function draw(){
     ctx.strokeStyle = P.accent; ctx.lineWidth = 3; ctx.setLineDash([8, 6]);
     ctx.beginPath(); ctx.moveTo(cx(hwStart), cy(hwStart)); if (hoverCell >= 0) ctx.lineTo(cx(hoverCell), cy(hoverCell)); ctx.stroke(); ctx.setLineDash([]);
     ctx.beginPath(); ctx.arc(cx(hwStart), cy(hwStart), CELL * 0.36, 0, 7); ctx.stroke(); }
+  if (hold){ const r = cv.getBoundingClientRect(), x = (hold.x - r.left - offX) / scale, y = (hold.y - r.top - offY) / scale, f = Math.min(1, (performance.now() - hold.t0) / HOLD_MS);
+    ctx.strokeStyle = mode === 'erase' ? P.warn : P.accent; ctx.lineWidth = 3 / scale; ctx.globalAlpha = 0.85; ctx.beginPath(); ctx.arc(x, y, 22 / scale, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
   if (mode === 'ring') drawRingSpots();
   if ((mode === 'hw' || mode === 'light') && hoverCell >= 0 && roads.has(hoverCell)){
     ctx.strokeStyle = P.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx(hoverCell), cy(hoverCell), CELL * 0.46, 0, 7); ctx.stroke(); }
@@ -1902,7 +1913,8 @@ const toCell = (ev, inner) => { const r = cv.getBoundingClientRect(); const x = 
   // while drawing, a cell counts only once the finger is near its middle, so cutting a corner gives a clean 45° road
   if (inner && Math.hypot(x - c - 0.5, y - rw - 0.5) > 0.4) return -2;
   return idx(c, rw); };
-const touches = new Map(); let pinch = null, midPan = null, strokeDir = -1;
+const touches = new Map(); let pinch = null, midPan = null, strokeDir = -1, hold = null; const HOLD_MS = 280;
+function dropHold(){ if (hold){ clearTimeout(hold.timer); hold = null; } }
 function cancelStroke(){ // the first finger had started a road a moment before the second came down: take it back
   if (stroke && stroke.added) for (const [a, b] of stroke.added.reverse()){ if (!hasEdge(a, b)) continue; if (!freeEdge(a, b)) budget++; delEdge(a, b); }
   if (stroke && stroke.tunnels) for (const id of stroke.tunnels){ for (const [c, tid] of [...tunnelOf]) if (tid === id){ tunnelOf.delete(c); for (const j of [...eOf(c)]) delEdge(c, j); } tunnelsN++; }
@@ -1910,7 +1922,7 @@ function cancelStroke(){ // the first finger had started a road a moment before 
   drawing = false; last = -1; stroke = null; }
 cv.addEventListener('pointerdown', ev => {
   touches.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-  if (touches.size === 2){ cancelStroke(); midPan = null; const [p1, p2] = [...touches.values()]; pinch = { d: Math.hypot(p1.x - p2.x, p1.y - p2.y), x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }; return; }
+  if (touches.size === 2){ dropHold(); cancelStroke(); midPan = null; const [p1, p2] = [...touches.values()]; pinch = { d: Math.hypot(p1.x - p2.x, p1.y - p2.y), x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }; return; }
   if (touches.size > 2) return;
   if (ev.button === 1){ midPan = { x: ev.clientX, y: ev.clientY }; cv.setPointerCapture(ev.pointerId); ev.preventDefault(); return; }
   if (over || choosing) return;
@@ -1922,7 +1934,15 @@ cv.addEventListener('pointerdown', ev => {
   if (ev.button !== 2 && mode === 'hw'){ if (i >= 0) tapHw(i); return; }
   if (ev.button !== 2 && mode === 'light'){ if (i >= 0) tapLight(i); return; }
   if ((mode === 'erase' || ev.button === 2) && eraseHwAt(ev)) return;
-  if (ev.pointerType === 'touch' && mode === 'draw' && hwStart < 0 && (i < 0 || (!roads.has(i) && !occ.has(i) && !doors.has(i)))){ midPan = { x: ev.clientX, y: ev.clientY }; cv.setPointerCapture(ev.pointerId); return; } // on a phone a finger on empty ground moves the map; a road starts from a road, a house or a shop
+  // On a phone one finger moves the map. Hold it still for a moment and it starts drawing (or erasing) right there:
+  // a ring fills round the finger while it waits, and the phone gives a short buzz when the road starts.
+  if (ev.pointerType === 'touch' && (mode === 'draw' || mode === 'erase') && hwStart < 0){
+    midPan = { x: ev.clientX, y: ev.clientY }; try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
+    hold = { x: ev.clientX, y: ev.clientY, t0: performance.now(), i, timer: setTimeout(() => { if (!hold) return; const h = hold; hold = null; midPan = null;
+      try { navigator.vibrate && navigator.vibrate(15); } catch (e) {}
+      drawing = true; drawErase = mode === 'erase'; stroke = { run: null, warned: false, added: [], bridges: [], tunnels: [] }; last = -1; strokeDir = -1; apply(h.i); }, HOLD_MS) };
+    if (!lsGet('dorozhki-hold')){ lsSet('dorozhki-hold', '1'); toast('Веди пальцем — двигаешь карту. Задержи палец — рисуешь'); }
+    return; }
   cv.setPointerCapture(ev.pointerId); drawing = true; drawErase = mode === 'erase' || ev.button === 2;
   stroke = { run: null, warned: false, added: [], bridges: [], tunnels: [] }; last = -1; strokeDir = -1; apply(i); });
 cv.addEventListener('pointermove', ev => {
@@ -1930,6 +1950,7 @@ cv.addEventListener('pointermove', ev => {
   if (pinch && touches.size === 2){ const [p1, p2] = [...touches.values()], r = cv.getBoundingClientRect();
     const d = Math.hypot(p1.x - p2.x, p1.y - p2.y), x = (p1.x + p2.x) / 2, y = (p1.y + p2.y) / 2;
     panBy(x - pinch.x, y - pinch.y); zoomAt(x - r.left, y - r.top, d / Math.max(1, pinch.d)); pinch = { d, x, y }; return; }
+  if (hold && Math.hypot(ev.clientX - hold.x, ev.clientY - hold.y) > 9) dropHold(); // it moved: this finger pans
   if (midPan){ panBy(ev.clientX - midPan.x, ev.clientY - midPan.y); midPan = { x: ev.clientX, y: ev.clientY }; return; }
   if (bendHw){ bendTo(ev); return; }
   if (bendRd){ moveBend(ev); return; }
@@ -1946,7 +1967,7 @@ cv.addEventListener('pointermove', ev => {
   const i = toCell(ev, true);
   if (i < 0 || i === last) return; if (last >= 0 && !adj8(last, i)) walk(last, i); else apply(i); });
 const up = ev => { // a stroke released at the edge of a cell still takes that cell
-  touches.delete(ev.pointerId); if (pinch){ if (touches.size < 2) pinch = null; return; } if (midPan){ midPan = null; return; } if (bendHw){ endBend(); return; } if (moveHw){ endMove(); return; } if (bendRd){ bendRd = null; saveNow(); return; }
+  touches.delete(ev.pointerId); dropHold(); if (pinch){ if (touches.size < 2) pinch = null; return; } if (midPan){ midPan = null; return; } if (bendHw){ endBend(); return; } if (moveHw){ endMove(); return; } if (bendRd){ bendRd = null; saveNow(); return; }
   if (drawing && ev && ev.type === 'pointerup'){ const i = toCell(ev, false); if (i >= 0 && last >= 0 && i !== last && adj8(last, i)) apply(i); }
   drawing = false; last = -1; stroke = null; };
 cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);

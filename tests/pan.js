@@ -10,5 +10,5 @@ console.log('before',await st());
 await fire('pointerdown',empty[0],empty[1]); for(let k=1;k<=10;k++) await fire('pointermove',empty[0]+k*8,empty[1]+k*5); await fire('pointerup',empty[0]+80,empty[1]+50);
 console.log('after empty drag',await st());
 const h=await p.evaluate(()=>__ev(`(()=>{ const R=cv.getBoundingClientRect(); const b=[...bld.values()].find(b=>b.type==='house'); return [R.left+offX+cx(b.i)*scale, R.top+offY+cy(b.i)*scale, R.left+offX+cx(b.doorCell)*scale, R.top+offY+cy(b.doorCell)*scale]; })()`));
-const dx=(h[2]-h[0]), dy=(h[3]-h[1]); await fire('pointerdown',h[0],h[1]); for(let k=1;k<=12;k++) await fire('pointermove',h[0]+dx*k/3,h[1]+dy*k/3); await fire('pointerup',h[0]+dx*4,h[1]+dy*4);
-console.log('after drag from house',await st()); await b.close();})();
+const dx=(h[2]-h[0]), dy=(h[3]-h[1]); await fire('pointerdown',h[0],h[1]); for(let k=1;k<=12;k++) await fire('pointermove',h[0]+dx*k/3,h[1]+dy*k/3); await fire('pointerup',h[0]+dx*4,h[1]+dy*4); console.log('quick drag from house (pans)',await st()); await fire('pointerdown',h[0],h[1]); await p.waitForTimeout(400); for(let k=1;k<=12;k++) await fire('pointermove',h[0]+dx*k/3,h[1]+dy*k/3); await fire('pointerup',h[0]+dx*4,h[1]+dy*4);
+console.log('hold then drag from house (draws)',await st()); await b.close();})();
