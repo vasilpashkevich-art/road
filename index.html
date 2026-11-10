@@ -1056,7 +1056,6 @@ function stepCar(car, dt){
       car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], lanePt(b, 1.5, 0.62, true), [start[0], start[1]]]));
       car.s = 0; car.phase = 'leave'; car.rev = false; car.v = 0; } return; }
   if (car.phase === 'leave'){ const st0 = samp(buildGeom(car.homePath)[0], 0);
-    if (SHOP_TYPES[car.target.size].loop && car.s > car.lot.len - CAR_L * 2.6 && car.s < car.lot.len - CAR_L * 1.4 && loopGateIn(car.target)){ car.v = 0; return; } // a car is just turning in through the gate: let it clear
     if (!SHOP_TYPES[car.target.size].loop && car.s > car.lot.len - CAR_L * 2.4 && gateIn(car.target) && (car.gateT = (car.gateT || 0) + dt) < 8){ car.v = 0; return; } // someone is just turning in through the gate
     if (car.s > car.lot.len - MIN_GAP && !spotFree(st0[0], st0[1], car, st0[2], car.target)){ car.v = 0; car.stuck = (car.stuck || 0) + dt; return; } // wait at the gate until the road is clear: never pull out onto a car
     if (stepLot(car, dt)){ const v = car.v, da = car.da, from = car.slotShop, push = false; releaseStall(car); startTrip(car, car.homePath, car.home, true); car.v = v; car.da = da; car.fromShop = from; if (push) car.ghost = 1.5; } return; }
@@ -1131,7 +1130,7 @@ function stepCar(car, dt){
     car.s -= seg.len; car.si++;
     if (car.si >= car.segs.length){ arrive(car); return; }
     if (!car.back && car.si === car.segs.length - 1 && car.target.type === 'shop'){ // entering the lot
-      const k = (!SHOP_TYPES[car.target.size].loop && lotMoving(car.target, SHOP_TYPES[car.target.size].short ? ['unpark', 'leave'] : ['unpark'])) || (SHOP_TYPES[car.target.size].loop ? loopGateOut(car.target) : gateOut(car.target, car)) ? -1 : freeStall(car.target); if (k < 0){ car.si--; car.s = seg.len; car.v = 0; break; }
+      const k = (!SHOP_TYPES[car.target.size].loop && lotMoving(car.target, SHOP_TYPES[car.target.size].short ? ['unpark', 'leave'] : ['unpark'])) || (!SHOP_TYPES[car.target.size].loop && gateOut(car.target, car)) ? -1 : freeStall(car.target); if (k < 0){ car.si--; car.s = seg.len; car.v = 0; break; }
       car.slot = k; car.slotShop = car.target; car.target.slots[k] = car;
       const [x0, y0] = samp(car.segs[car.si], 0); car.x = x0; car.y = y0; enterCell(car, -1); intoLot(car); return; }
     const ns = car.segs[car.si];
@@ -1151,7 +1150,7 @@ function crPts(P){ // smooth line through waypoints (Catmull-Rom)
     for (let k = 0; k < 8; k++){ const t = k / 8, t2 = t * t, t3 = t2 * t, f = j => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3);
       out.push([f(0), f(1)]); } }
   out.push(P[P.length - 1]); return out; }
-const freeStall = b => { if (false && SHOP_TYPES[b.size] && SHOP_TYPES[b.size].loop){ let best = -1, bd = -1; for (let k = 0; k < b.active; k++) if (!b.slots[k]){ const d = loopAt(b, stallsOf(b)[k][1]); if (d > bd){ bd = d; best = k; } } return best; } // round a loop the farthest free bay first, so nobody has to pass a standing car
+const freeStall = b => { if (SHOP_TYPES[b.size] && SHOP_TYPES[b.size].loop){ let best = -1, bd = -1; for (let k = 0; k < b.active; k++) if (!b.slots[k]){ const d = loopAt(b, stallsOf(b)[k][1]); if (d > bd){ bd = d; best = k; } } return best; } // round a loop the farthest free bay first, so nobody has to pass a standing car
   for (let k = 0; k < b.active; k++) if (!b.slots[k]) return k; return -1; };
 // the lot drive is used one way at a time: nobody pulls in while someone is pulling out, and the other way round
 const lotMoving = (b, phases) => cars.some(c => c.slotShop === b && phases.includes(c.phase));
@@ -1163,14 +1162,16 @@ function releaseStall(car){ if (car.slot >= 0 && car.slotShop){ if (car.slotShop
 const STRIP_H = [0.47, -0.88];
 // A loop lot (the user's idea, like a little roundabout): in along the far side of the strip, round the end, back along the building,
 // stop at the bay beside the shop for the order, then on round and out. One way only, so cars never meet head-on and nobody backs up.
-const LOOP_IN = 1.3, LOOP_OUT = 1.7, LOOP_END = 1.62;
+const LOOP_IN = 1.3, LOOP_OUT = 1.7, LOOP_END = 1.45;
 function loopCW(f, lat){ const F = DIRS[f], R = DIRS[lat]; return (R[0] * -F[1] - R[1] * -F[0]) < 0; } // screen orientation of the (u, v) frame
 function loopPts(b){ // always counter-clockwise on screen, as on a roundabout: in along one side, round the end, out along the other
   const make = (ui, uo) => { const pts = [shopPt(b, ui, 0.55), shopPt(b, ui, LOOP_END)];
     for (let k = 1; k < 8; k++){ const a = Math.PI * k / 8, r = (uo - ui) / 2; pts.push(shopPt(b, (ui + uo) / 2 - Math.cos(a) * r, LOOP_END + Math.sin(a) * Math.abs(r) * 1.4)); }
     pts.push(shopPt(b, uo, LOOP_END), shopPt(b, uo, 0.55)); return pts; };
-  const p = make(LOOP_IN, LOOP_OUT); let area = 0; for (let k = 0; k < p.length; k++){ const q = p[k], r = p[(k + 1) % p.length]; area += q[0] * r[1] - r[0] * q[1]; }
-  return p; } // in along the far side, round the end, back along the shop: clockwise or counter-clockwise depending on which side the shop stands
+  // keep right, as on the road: a car comes in along the lane on the right of its heading and goes out along the other,
+  // so the one coming in and the one going out pass side by side at the gate and never cross
+  const o = shopPt(b, 1.5, 0), f = shopPt(b, 1.5, 1), u = shopPt(b, 2.5, 0), rightIsU = (-(f[1] - o[1])) * (u[0] - o[0]) + (f[0] - o[0]) * (u[1] - o[1]) > 0;
+  return rightIsU ? make(LOOP_OUT, LOOP_IN) : make(LOOP_IN, LOOP_OUT); } // in along the far side, round the end, back along the shop: clockwise or counter-clockwise depending on which side the shop stands
 function loopAt(b, vs){ const P = loopPts(b), q = shopPt(b, LOOP_OUT, vs); let best = 0, bd = 1e9, acc = 0, at = 0; // arc length along the loop of the bay at vs
   for (let k = 1; k < P.length; k++){ const L = Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1]);
     for (let n = 0; n <= 10; n++){ const x = P[k - 1][0] + (P[k][0] - P[k - 1][0]) * n / 10, y = P[k - 1][1] + (P[k][1] - P[k - 1][1]) * n / 10, d = Math.hypot(x - q[0], y - q[1]); if (d < bd){ bd = d; best = acc + L * n / 10; } } acc += L; }
@@ -1241,7 +1242,7 @@ function lotFull(car, k){
   const last = k === car.segs.length - 1, door = car.target.doorCell;
   const intoDoorCrossing = sg.cell === door && jGroup.has(door) && (car.si < 0 || car.segs[car.si].cell === -1 || jGroup.get(car.segs[car.si].cell) !== jGroup.get(door));
   if (!last && !intoDoorCrossing) return false;
-  return freeStall(car.target) < 0 || (!SHOP_TYPES[car.target.size].loop && lotMoving(car.target, SHOP_TYPES[car.target.size].short ? ['unpark', 'leave'] : ['unpark'])) || (SHOP_TYPES[car.target.size].loop ? loopGateOut(car.target) : gateOut(car.target, car)); } // a one-lane strip is one way at a time; a loop lot has its own way in and out
+  return freeStall(car.target) < 0 || (!SHOP_TYPES[car.target.size].loop && lotMoving(car.target, SHOP_TYPES[car.target.size].short ? ['unpark', 'leave'] : ['unpark'])) || (!SHOP_TYPES[car.target.size].loop && gateOut(car.target, car)); } // a one-lane strip is one way at a time; a loop lot has its own way in and out
 function goHome(car){
   releaseStall(car); car.passCar = null;
   if (!car.back && car.target && car.phase === 'go') car.target.reserved = Math.max(0, car.target.reserved - 1);
