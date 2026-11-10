@@ -1657,6 +1657,8 @@ function draw(){
     ctx.strokeStyle = P.accent; ctx.lineWidth = 3; ctx.setLineDash([8, 6]);
     ctx.beginPath(); ctx.moveTo(cx(hwStart), cy(hwStart)); if (hoverCell >= 0) ctx.lineTo(cx(hoverCell), cy(hoverCell)); ctx.stroke(); ctx.setLineDash([]);
     ctx.beginPath(); ctx.arc(cx(hwStart), cy(hwStart), CELL * 0.36, 0, 7); ctx.stroke(); }
+  if (moveLt){ const ok = moveLt.to !== undefined && (moveLt.to === moveLt.from || lightOk(moveLt.to)); ctx.strokeStyle = ok ? P.lampGo : P.warn; ctx.lineWidth = 3; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(cx(moveLt.from), cy(moveLt.from)); ctx.lineTo(moveLt.x, moveLt.y); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(moveLt.x, moveLt.y, CELL * 0.3, 0, 7); ctx.stroke(); }
   if (hold){ const r = cv.getBoundingClientRect(), x = (hold.x - r.left - offX) / scale, y = (hold.y - r.top - offY) / scale, f = Math.min(1, (performance.now() - hold.t0) / HOLD_MS);
     ctx.strokeStyle = mode === 'erase' ? P.warn : P.accent; ctx.lineWidth = 3 / scale; ctx.globalAlpha = 0.85; ctx.beginPath(); ctx.arc(x, y, 22 / scale, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
   if (mode === 'ring') drawRingSpots();
@@ -1748,6 +1750,8 @@ function clearNode(i, soft){ for (const j of [...eOf(i)]){ if (dying.has(ekey(i,
 function eraseCell(i){
   if (occ.has(i)){ const b = occ.get(i); if (hasEdge(b.i, b.doorCell)) delEdge(b.i, b.doorCell); return; }
   if (!roads.has(i)) return;
+  if (rings.has(i)){ rings.delete(i); ringN++; netV++; zoneRings(); toast('Кольцо снято и вернулось в запас'); return; } // as in Mini Motorways: the tool is picked up, the road stays
+  if (lights.has(i)){ lights.delete(i); lightN++; toast('Светофор снят и вернулся в запас'); return; }
   const bid = bridgeOf.get(i);
   if (bid !== undefined){ for (const [c, id] of [...bridgeOf]) if (id === bid){ bridgeOf.delete(c); clearNode(c); } bridgesN++; return; }
   const tid = tunnelOf.get(i);
@@ -1925,6 +1929,11 @@ const toCell = (ev, inner) => { const r = cv.getBoundingClientRect(); const x = 
   // while drawing, a cell counts only once the finger is near its middle, so cutting a corner gives a clean 45° road
   if (inner && Math.hypot(x - c - 0.5, y - rw - 0.5) > 0.4) return -2;
   return idx(c, rw); };
+let moveLt = null;
+const lightOk = i => i >= 0 && roads.has(i) && linkCount(i) >= 3 && !rings.has(i) && !ringZone.has(i) && !lights.has(i);
+function endMoveLt(){ const m = moveLt; moveLt = null; if (m.to === undefined || m.to === m.from) return;
+  if (!lightOk(m.to)){ toast('Светофор переносится на другой перекрёсток — где сходятся три дороги и больше'); return; }
+  const L = lights.get(m.from); lights.delete(m.from); lights.set(m.to, L); saveNow(); }
 const touches = new Map(); let pinch = null, midPan = null, strokeDir = -1, hold = null; const HOLD_MS = 280;
 function dropHold(){ if (hold){ clearTimeout(hold.timer); hold = null; } }
 function cancelStroke(){ // the first finger had started a road a moment before the second came down: take it back
@@ -1941,6 +1950,7 @@ cv.addEventListener('pointerdown', ev => {
   if (ev.button === 0 && (mode === 'draw' || mode === 'hw') && hwStart < 0){ const m = hwEndAt(ev); if (m){ const r = cv.getBoundingClientRect(); moveHw = { ...m, to: -1, x: cx(m.h[m.e]), y: cy(m.h[m.e]) }; cv.setPointerCapture(ev.pointerId); return; } }
   if (ev.button === 0 && (mode === 'draw' || mode === 'hw') && hwStart < 0){ const g = hwHandleAt(ev); if (g){ bendHw = { ...g, m0: g.h.m || null, bad: '' }; cv.setPointerCapture(ev.pointerId); return; } }
   const i = toCell(ev);
+  if (ev.button === 0 && (mode === 'draw' || mode === 'light') && i >= 0 && lights.has(i) && hwStart < 0){ moveLt = { from: i, x: cx(i), y: cy(i) }; try { cv.setPointerCapture(ev.pointerId); } catch (e) {} return; } // drag a traffic light to another crossing
   if (false && ev.button !== 2 && mode === 'bend'){ if (startBend(ev)) cv.setPointerCapture(ev.pointerId); return; }
   if (ev.button !== 2 && mode === 'ring'){ if (i >= 0) tapRing(i); return; }
   if (ev.button !== 2 && mode === 'hw'){ if (i >= 0) tapHw(i); return; }
@@ -1964,6 +1974,7 @@ cv.addEventListener('pointermove', ev => {
     panBy(x - pinch.x, y - pinch.y); zoomAt(x - r.left, y - r.top, d / Math.max(1, pinch.d)); pinch = { d, x, y }; return; }
   if (hold && Math.hypot(ev.clientX - hold.x, ev.clientY - hold.y) > 9) dropHold(); // it moved: this finger pans
   if (midPan){ panBy(ev.clientX - midPan.x, ev.clientY - midPan.y); midPan = { x: ev.clientX, y: ev.clientY }; return; }
+  if (moveLt){ const r = cv.getBoundingClientRect(); moveLt.x = (ev.clientX - r.left - offX) / scale; moveLt.y = (ev.clientY - r.top - offY) / scale; moveLt.to = toCell(ev, false); return; }
   if (bendHw){ bendTo(ev); return; }
   if (bendRd){ moveBend(ev); return; }
   if (moveHw){ const r = cv.getBoundingClientRect(); moveHw.x = (ev.clientX - r.left - offX) / scale; moveHw.y = (ev.clientY - r.top - offY) / scale; moveHw.to = toCell(ev, false); return; }
@@ -1979,7 +1990,7 @@ cv.addEventListener('pointermove', ev => {
   const i = toCell(ev, true);
   if (i < 0 || i === last) return; if (last >= 0 && !adj8(last, i)) walk(last, i); else apply(i); });
 const up = ev => { // a stroke released at the edge of a cell still takes that cell
-  touches.delete(ev.pointerId); dropHold(); if (pinch){ if (touches.size < 2) pinch = null; return; } if (midPan){ midPan = null; return; } if (bendHw){ endBend(); return; } if (moveHw){ endMove(); return; } if (bendRd){ bendRd = null; saveNow(); return; }
+  touches.delete(ev.pointerId); dropHold(); if (pinch){ if (touches.size < 2) pinch = null; return; } if (midPan){ midPan = null; return; } if (moveLt){ endMoveLt(); return; } if (bendHw){ endBend(); return; } if (moveHw){ endMove(); return; } if (bendRd){ bendRd = null; saveNow(); return; }
   if (drawing && ev && ev.type === 'pointerup'){ const i = toCell(ev, false); if (i >= 0 && last >= 0 && i !== last && adj8(last, i)) apply(i); }
   drawing = false; last = -1; stroke = null; };
 cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
