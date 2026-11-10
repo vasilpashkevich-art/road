@@ -193,7 +193,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
     <button id="contBtn" type="button" class="cont" hidden>Продолжить</button>
     <div class="mlabel">Новая игра — выбери карту</div>
     <div class="maps" id="maps"></div>
-    <div class="mfoot"><button id="tutBtn" type="button">Как играть — пройти обучение заново</button></div>
+    <div class="mfoot"><button id="tutBtn" type="button">Как играть — пройти обучение заново</button><button id="dumpBtn" type="button">Скопировать город для разбора</button></div>
+    <textarea id="dumpBox" hidden readonly rows="4" style="width:100%;box-sizing:border-box;margin-top:8px;font:11px monospace;border-radius:10px;border:1px solid var(--panel-edge);background:var(--ui);color:var(--fg);padding:8px"></textarea>
   </div></div>
 </div>
 
@@ -656,7 +657,8 @@ function inUse(a, b){ for (const c of cars){ if (c.phase !== 'go' || !c.path) co
 function stepDying(){ for (const k of [...dying]){ const [a, b] = k.split(',').map(Number); if (!hasEdge(a, b)){ dying.delete(k); continue; } if (!inUse(a, b)){ dying.delete(k); delEdge(a, b); if (!roads.has(a)) cleanup(a); if (!roads.has(b)) cleanup(b); autoDoor(a); autoDoor(b); } } }
 function gnb(u){ const out = [...eOf(u)].filter(v => !dying.has(ekey(u, v))); const h = hwOf.get(u); if (h && roads.has(u)) out.push(h.partner); return out; }
 function linkCount(i){ return eOf(i).size + (hwOf.has(i) ? 1 : 0); }
-const isJunction = i => i >= 0 && roads.has(i) && (linkCount(i) >= 3 || hwOf.has(i)); // a highway end is a crossing too: cars coming off the ramp and going up it take turns, they cannot meet head-on
+const roadLinks = i => { let n = hwOf.has(i) ? 1 : 0; for (const j of eOf(i)) if (roads.has(j)) n++; return n; };
+const isJunction = i => i >= 0 && roads.has(i) && (roadLinks(i) >= 3 || hwOf.has(i)); // a house's or a shop's driveway does not make a crossing: through traffic never stops for it // a highway end is a crossing too: cars coming off the ramp and going up it take turns, they cannot meet head-on
 function bfsNodes(start, tb){
   const par = new Map([[start, -1]]), q = [start]; let f = -1;
   for (let h = 0; h < q.length; h++){ const u = q[h];
@@ -839,6 +841,7 @@ function dispatch(dt){
   const ready = new Set();
   for (const b of bld.values()){ if (b.type !== 'house' || time - (b.outT || -9) < 1.4 || !b.cars.some(c => c.phase === 'home')) continue;
     if (cars.some(o => o.phase === 'go' && (Math.hypot(o.x - cx(b.i), o.y - cy(b.i)) < MIN_GAP + 2 || Math.hypot(o.x - cx(b.doorCell), o.y - cy(b.doorCell)) < MIN_GAP + 4))) continue; // pull out only when the driveway and the road in front are clear
+    { const dx0 = cx(b.doorCell), dy0 = cy(b.doorCell); if (cars.some(o => { if (o.phase !== 'go') return false; const dx = dx0 - o.x, dy = dy0 - o.y, d = Math.hypot(dx, dy); return d < CELL * 1.25 && d > 1 && (dx * Math.cos(o.ang) + dy * Math.sin(o.ang)) / d > 0.5 && o.v > VMAX * 0.2; })) continue; } // and nobody is just driving up to the driveway: the car pulls out into a gap, through traffic does not stop for it
     ready.add(b); }
   if (!ready.size) return;
   const shops = [...bld.values()].filter(s => s.type === 'shop' && s.pins - s.reserved > 0)
@@ -971,7 +974,7 @@ function roomPast(car, from, G, depth = 0){ // is there room for this car's body
   if (!(free >= MIN_GAP + CAR_L * 0.2 || (lead && lead.v > VMAX * 0.5 && free >= CAR_L * 0.6)))return false;
   // the next crossing right behind this one: if it would not let this car in now, the car would have to wait between the two;
   // that is only fine where the stretch between them holds its whole body
-  if (depth < 2) for (let k2 = to + 1; k2 < car.segs.length && t.segR[k2] - Rx < CELL * 1.3; k2++){ const sg = car.segs[k2]; if (sg.cell < 0) break;
+  if (depth < 2 && jCap.get(G) === 3) for (let k2 = to + 1; k2 < car.segs.length && t.segR[k2] - Rx < CELL * 1.3; k2++){ const sg = car.segs[k2]; if (sg.cell < 0) break;
     const G2 = jGroup.get(sg.cell); if (G2 === undefined || G2 === G) continue;
     const stand = t.segR[k2] - STOP - inside * MIN_GAP - Rx; // where this car would stand, past the end of this crossing
     if (stand < CAR_L * 0.5){ const w2 = boxOk(car, k2, G2, depth + 1); if (w2) return false; }
@@ -979,7 +982,7 @@ function roomPast(car, from, G, depth = 0){ // is there room for this car's body
   return true; }
 function boxOk(car, k, G, depth = 0){ // the crossing rules without the queue order: light, room past it, nobody inside on a crossing way
   if (car.ghost <= 0 && lightStops(car.segs[k].cell, car)) return 'light';
-  if (!roomPast(car, k, G, depth)) return 'room';
+  if (jCap.get(G) === 3 && !roomPast(car, k, G, depth)) return 'room'; // only a roundabout is kept clear; at a plain crossing a car drives right up to the car ahead, as in Mini Motorways
   const ring = jCap.get(G) === 3;
   for (const o of (locks.get(G) || [])){ if (o === car || o.phase !== 'go' || o.lock !== G) continue;
     if (o.boxIn && o.boxIn === car.curKey) continue; // the car ahead from my own lane: I simply follow it
@@ -1082,6 +1085,8 @@ function stepCar(car, dt){
       const nx = car.segs[car.si + 1]; car.waitG = -1; car.why = '';
       if (nx && nx.cell >= 0 && nx.cell !== seg.cell && car.s > seg.len - CELL * 0.9){ const w = lotFull(car, car.si + 1) ? 'lot' : boxWhy(car, car.si + 1);
         if (w){ blocked = true; car.why = w; vt = Math.min(vt, Math.max(0, seg.len - STOP - car.s) * 5); car.waitG = jGroup.has(nx.cell) ? jGroup.get(nx.cell) : -1; } }
+      if (!blocked && car.si === 0 && !car.back && nx && seg.cell === car.home.i && (car.stuck || 0) < 4){ const dx0 = cx(nx.cell), dy0 = cy(nx.cell); // pulling out of the driveway: wait while a car is on the road right in front of the house
+        if (cars.some(o => o !== car && o.phase === 'go' && Math.hypot(o.x - dx0, o.y - dy0) < CELL * 0.62)){ blocked = true; car.why = 'yield'; vt = Math.min(vt, Math.max(0, seg.len - STOP - car.s) * 5); } }
       if (car.waitG !== car.queueG){ car.queueG = car.waitG; car.waitAt = time; }
     }
   } else {
@@ -1585,6 +1590,7 @@ function drawCar(car){
 function draw(){
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, Hh);
   ctx.translate(offX, offY); ctx.scale(scale, scale);
+  if (!view) placeCamera(true, 0);
   ctx.save(); rr(view.x, view.y, view.w, view.h, 14); ctx.clip(); // nothing outside the open area is drawn
   ctx.save();
   ctx.fillStyle = P.ground; ctx.fillRect(view.x, view.y, view.w, view.h); drawWater(); // ground, banks and water in one baked picture
@@ -2050,7 +2056,12 @@ function openMenu(){
   menuOpen = true; const saved = playing && hasSave(), best = bestScore();
   $('contBtn').hidden = !saved;
   if (saved) $('contBtn').textContent = `Продолжить · неделя ${week}, ${trips} ${plural(trips, 'заказ', 'заказа', 'заказов')}`;
+  $('dumpBtn').textContent = 'Скопировать город для разбора'; $('dumpBtn').hidden = !(time > 1); $('dumpBox').hidden = true;
   buildMenuMaps(); $('menu').hidden = false; $('over').hidden = true; }
+// The whole town as one line of text: copied to the clipboard (or shown to copy by hand), to be pasted to whoever is looking into a problem.
+function dumpTown(){ const btn = $('dumpBtn'), box = $('dumpBox'), t = 'DOROZHKI1:' + JSON.stringify(serialize());
+  const shown = () => { box.value = t; box.hidden = false; box.focus(); box.select(); btn.textContent = 'Выдели текст ниже и скопируй'; };
+  try { navigator.clipboard.writeText(t).then(() => { btn.textContent = 'Скопировано — вставь в чат'; }, shown); } catch (e) { shown(); } }
 function closeMenu(){ menuOpen = false; $('menu').hidden = true; if (over) $('over').hidden = false; }
 $('menuBtn').onclick = () => (menuOpen ? closeMenu() : openMenu());
 $('contBtn').onclick = closeMenu;
@@ -2088,6 +2099,7 @@ function tutNext(){ if (!tut) return hideTip(); tut.step++; tut.t = 0;
 function tutSkip(){ tut = null; lsSet(TUT_KEY, 'done'); lsSet(TIPS_KEY, JSON.stringify(tipsSeen = { ring: 1, hw: 1, light: 1, bridge: 1 })); hideTip(); }
 $('tipOk').onclick = () => { if (tut) tutNext(); else hideTip(); };
 $('tipSkip').onclick = tutSkip;
+$('dumpBtn').onclick = dumpTown;
 $('tutBtn').onclick = () => { lsSet(TUT_KEY, ''); lsSet(TIPS_KEY, '{}'); tipsSeen = {}; tut = null; newGame('minsk'); closeMenu(); };
 function stepTut(dt){
   const live = !menuOpen && !over && !choosing && !paused;
