@@ -391,7 +391,7 @@ function makeRiver(){
 function reset(){
   sizeGrid();
   flies = []; dying = new Set(); E = new Map(); roadOff = new Map(); occ = new Map(); lights = new Map(); lightN = 0; roads = new Set(); doors = new Set(); bridgeOf = new Map(); bridgeSeq = 0; rings = new Set(); ringZone = new Set(); tunnelOf = new Map(); tunnelSeq = 0; hws = []; hwOf = new Map();
-  bld = new Map(); cars = []; locks = new Map();
+  bld = new Map(); cars = []; locks = new Map(); courtesy.clear();
   nextHouse = null; time = 0; trips = 0; over = false; spawnHouseT = T.firstHouse; spawnShopT = T.firstShop; colorsInPlay = 1;
   budget = T.startRoads; bridgesN = MAPS[mapId].bridges; tunnelsN = MAPS[mapId].tunnels || 0; ringN = 0; hwN = 0; weekT = WEEK; week = 1; hwStart = -1;
   buildWater(); buildTerrain(); waterImg = null; applyTint(); startArea();
@@ -909,7 +909,7 @@ function gapAhead(car, seg){
 // (2) the road just past the crossing has room for its whole body (so a queue never stands across a crossing), (3) nobody inside the
 // crossing is on a way that cuts its own (cars from the same lane just follow), and (4) no car that stopped earlier at this crossing,
 // on a way that cuts its own, could go now (first come, first served).
-const TRAFFIC2 = true;
+const TRAFFIC2 = true; const courtesy = new Map();
 let laneMap = new Map();
 function laneTrack(car){
   if (car.trk && car.trk.segs === car.segs) return car.trk;
@@ -1056,10 +1056,10 @@ function stepCar(car, dt){
       car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], lanePt(b, 1.5, 0.62, true), [start[0], start[1]]]));
       car.s = 0; car.phase = 'leave'; car.rev = false; car.v = 0; } return; }
   if (car.phase === 'leave'){ const st0 = samp(buildGeom(car.homePath)[0], 0);
-    if (SHOP_TYPES[car.target.size].loop && car.s > car.lot.len - CAR_L * 2.6 && car.s < car.lot.len - CAR_L * 1.4 && loopGateIn(car.target) && (car.gateT = (car.gateT || 0) + dt) < 2.5){ car.v = 0; return; } // a car is just turning in through the gate: let it clear
+    if (SHOP_TYPES[car.target.size].loop && car.s > car.lot.len - CAR_L * 2.6 && car.s < car.lot.len - CAR_L * 1.4 && loopGateIn(car.target)){ car.v = 0; return; } // a car is just turning in through the gate: let it clear
     if (!SHOP_TYPES[car.target.size].loop && car.s > car.lot.len - CAR_L * 2.4 && gateIn(car.target) && (car.gateT = (car.gateT || 0) + dt) < 8){ car.v = 0; return; } // someone is just turning in through the gate
-    if (car.s > car.lot.len - MIN_GAP && !spotFree(st0[0], st0[1], car, st0[2], car.target) && (car.gateT = (car.gateT || 0) + dt) < 3){ car.v = 0; return; } // wait at the gate until the road is clear: never pull out onto a car
-    if (stepLot(car, dt)){ const v = car.v, da = car.da, from = car.slotShop, push = (car.gateT || 0) >= 3; releaseStall(car); startTrip(car, car.homePath, car.home, true); car.v = v; car.da = da; car.fromShop = from; if (push) car.ghost = 1.5; } return; }
+    if (car.s > car.lot.len - MIN_GAP && !spotFree(st0[0], st0[1], car, st0[2], car.target)){ car.v = 0; car.stuck = (car.stuck || 0) + dt; return; } // wait at the gate until the road is clear: never pull out onto a car
+    if (stepLot(car, dt)){ const v = car.v, da = car.da, from = car.slotShop, push = false; releaseStall(car); startTrip(car, car.homePath, car.home, true); car.v = v; car.da = da; car.fromShop = from; if (push) car.ghost = 1.5; } return; }
   if (car.netV !== netV){ car.netV = netV; rebase(car); }
   if (car.ox || car.oy){ const k = Math.exp(-dt * 7); car.ox *= k; car.oy *= k; if (Math.abs(car.ox) + Math.abs(car.oy) < 0.05){ car.ox = 0; car.oy = 0; } }
   let seg = car.segs[car.si];
@@ -1072,7 +1072,7 @@ function stepCar(car, dt){
     if (nx){ const vb = bendV(nx); if (vb < Infinity) vt = Math.min(vt, Math.sqrt(vb * vb + 2 * CELL * 8 * Math.max(0, seg.len - car.s))); } }
   if (TRAFFIC2){
     // never stand for ever: a car held by the crossing rules themselves (a way cut, the queue order) slips through after 12 s, anything else after 30 s
-    if (car.ghost <= 0 && ((car.stuck || 0) > 30 || ((car.stuck || 0) > 12 && (car.why === 'cut' || car.why === 'order')))){ car.ghost = 1.5; car.stuck = 0; }
+    // no slipping through other cars, ever: a jam is a jam, and the player clears it by changing the roads
     if (car.ghost > 0){ car.ghost -= dt; car.waitG = -1; car.why = ''; }
     else {
       let [gap, ld] = leadAhead(car, LOOK * 1.6); car.leadBy = ld; const nx0 = car.segs[car.si + 1];
@@ -1085,8 +1085,10 @@ function stepCar(car, dt){
       const nx = car.segs[car.si + 1]; car.waitG = -1; car.why = '';
       if (nx && nx.cell >= 0 && nx.cell !== seg.cell && car.s > seg.len - CELL * 0.9){ const w = lotFull(car, car.si + 1) ? 'lot' : boxWhy(car, car.si + 1);
         if (w){ blocked = true; car.why = w; vt = Math.min(vt, Math.max(0, seg.len - STOP - car.s) * 5); car.waitG = jGroup.has(nx.cell) ? jGroup.get(nx.cell) : -1; } }
-      if (!blocked && car.si === 0 && !car.back && nx && seg.cell === car.home.i && (car.stuck || 0) < 4){ const dx0 = cx(nx.cell), dy0 = cy(nx.cell); // pulling out of the driveway: wait while a car is on the road right in front of the house
-        if (cars.some(o => o !== car && o.phase === 'go' && Math.hypot(o.x - dx0, o.y - dy0) < CELL * 0.62)){ blocked = true; car.why = 'yield'; vt = Math.min(vt, Math.max(0, seg.len - STOP - car.s) * 5); } }
+      if (!blocked && nx && nx.cell >= 0 && nx.cell !== seg.cell && car.si > 0 && car.lock < 0 && !RING_SEG(seg) && !jGroup.has(seg.cell) && !ringZone.has(seg.cell)){ const cc = courtesy.get(nx.cell); // a car has waited at its driveway for a while: the next one on the road holds back a moment and lets it in, one at a time
+        if (cc && cc.car !== car && time - cc.t >= 0 && time - cc.t < 0.2 && cars.includes(cc.car) && cc.car.phase === 'go' && cc.car.si === 0 && seg.len - STOP - car.s >= car.v * car.v / (2 * DEC) && !cars.some(o => o !== car && o !== cc.car && o.phase === 'go' && Math.hypot(o.x - cx(nx.cell), o.y - cy(nx.cell)) < CELL * 0.36)){ blocked = true; car.why = 'courtesy'; /* only when the driveway is otherwise clear: then the waiting car goes at once, so nobody ever waits on a car that cannot move */ vt = Math.min(vt, Math.max(0, seg.len - STOP - car.s) * 5); } }
+      if (!blocked && car.si === 0 && !car.back && nx && seg.cell === car.home.i){ const dx0 = cx(nx.cell), dy0 = cy(nx.cell), zip = (car.stuck || 0) >= 4; if (zip) courtesy.set(nx.cell, { car, t: time }); // pulling out of the driveway: wait while a car is on the road right in front of the house (a moving stream lets it zip in after a while; a standing queue does not)
+        if (cars.some(o => o !== car && o.phase === 'go' && Math.hypot(o.x - dx0, o.y - dy0) < (zip ? CELL * 0.36 : CELL * 0.62))){ /* after a few seconds it noses into the first hole a car long */ blocked = true; car.why = 'yield'; vt = Math.min(vt, Math.max(0, seg.len - STOP - car.s) * 5); } }
       if (car.waitG !== car.queueG){ car.queueG = car.waitG; car.waitAt = time; }
     }
   } else {
@@ -1213,9 +1215,11 @@ function stepLot(car, dt){
     if (o.target === car.slotShop && !o.back && o.v < VMAX * 0.3) continue; // a car waiting to come into this lot lets us out first
     const fx = car.x + hx * 8, fy = car.y + hy * 8; if (((o.x - car.x) * hx + (o.y - car.y) * hy) > 0 && Math.cos(o.ang - car.ang) > -0.3 && boxHit(fx, fy, car.da, o.x, o.y, o.da, 2)){ blocked = true; break; } }
   if (car.lotG !== g){ car.lotG = g; car.lotT = 0; } car.lotT += dt;
-  const loose = (car.stuck || 0) > 2 || car.lotT > g.len / vmax + 2; // a lot move that has taken 5 s too long finishes anyway: a lot must never lock up, even when cars inch back and forth
+  const isLoop = car.slotShop && SHOP_TYPES[car.slotShop.size].loop;
+  const loose = !isLoop && ((car.stuck || 0) > 2 || car.lotT > g.len / vmax + 2); // only the old kinds of lot (old saves) finish a move regardless; on a loop lot cars simply follow one another, nothing passes through anything // a lot move that has taken 5 s too long finishes anyway: a lot must never lock up, even when cars inch back and forth
   const vt = blocked && !loose ? 0 : vmax; car.v += Math.max(-DEC * dt, Math.min(ACC * dt, vt - car.v));
-  { const q = samp(g, Math.min(1, (car.s + car.v * dt) / g.len)); if (!loose && car.v > 0 && wouldHit(car, q[0], q[1], car.rev ? q[2] + Math.PI : q[2])) car.v = 0; }
+  { const q = samp(g, Math.min(1, (car.s + car.v * dt) / g.len)); if (!loose && car.v > 0){ const hit = wouldHit(car, q[0], q[1], car.rev ? q[2] + Math.PI : q[2]);
+      if (hit && !(isLoop && hit.slotShop === car.slotShop && hit.phase !== 'go')) car.v = 0; } } // on a loop lot the cars of that lot keep apart by their place in the loop (above); the body check is for cars on the road
   if (car.v < 1) car.stuck = (car.stuck || 0) + dt; else car.stuck = 0;
   car.s += car.v * dt;
   const t = Math.min(1, car.s / g.len), [x, y, a] = samp(g, t);
