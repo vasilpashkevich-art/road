@@ -14,7 +14,7 @@
   --deep:#5f98cc; --shallow:#b3daf1; --wet:#6d9cc4; --sand:#e8dcbc; --sand-dk:#d9c99f; --meadow:#e3e9d2; --warm:#efe8d3;
   --card:#fbfaf6; --fg:#2a2824; --muted:#7a766b; --panel:rgba(255,255,255,.86); --panel-edge:rgba(40,35,25,.12);
   --accent:#2f6fde;
-  --c0:#e2563f; --c1:#3f7fe3; --c2:#efb72b; --c3:#3fae6e;
+  --c0:#e2563f; --c1:#3f7fe3; --c2:#efb72b; --c3:#3fae6e; --c4:#9b5de5; --c5:#f06fb0;
   --c0d:#a83a28; --c1d:#2b5ab0; --c2d:#b7861a; --c3d:#2a7d4c;
   --lot:#ebe7dd; --lot-edge:#c9c3b3; --isle:#5b5d66; --win:rgba(255,255,255,.6); --shadow:rgba(30,25,15,.22); --pin:#ffffff; --pin-edge:rgba(0,0,0,.25);
   --warn:#d9412c; --chip:#5b5f6b; --lamp-go:#5cc46a; --lamp-stop:#ec6a55; --lamp-ring:#2a2824; --grid:rgba(90,80,60,.28);
@@ -28,7 +28,7 @@
   --deep:#1b3249; --shallow:#355b78; --wet:#172a3b; --sand:#3a3830; --sand-dk:#45412f; --meadow:#232a27; --warm:#29282a;
   --card:#2a2d34; --fg:#ecebe6; --muted:#9a9890; --panel:rgba(30,32,38,.88); --panel-edge:rgba(255,255,255,.10);
   --accent:#6b9cf5;
-  --c0:#f06a52; --c1:#5b94f0; --c2:#f5c743; --c3:#52c484;
+  --c0:#f06a52; --c1:#5b94f0; --c2:#f5c743; --c3:#52c484; --c4:#b388f5; --c5:#f58cc4;
   --c0d:#b54633; --c1d:#3764b8; --c2d:#bf9222; --c3d:#2f8b58;
   --lot:#33363e; --lot-edge:#7c808c; --isle:#1d1f24; --win:rgba(255,255,255,.4); --shadow:rgba(0,0,0,.45); --pin:#f2f2f2; --pin-edge:rgba(0,0,0,.4);
   --warn:#ff6a55; --chip:#8a8f9c; --lamp-go:#6fd67c; --lamp-stop:#ff7b66; --lamp-ring:#ecebe6; --grid:rgba(255,255,255,.18); color-scheme:dark }}
@@ -40,7 +40,7 @@
   --deep:#1b3249; --shallow:#355b78; --wet:#172a3b; --sand:#3a3830; --sand-dk:#45412f; --meadow:#232a27; --warm:#29282a;
   --card:#2a2d34; --fg:#ecebe6; --muted:#9a9890; --panel:rgba(30,32,38,.88); --panel-edge:rgba(255,255,255,.10);
   --accent:#6b9cf5;
-  --c0:#f06a52; --c1:#5b94f0; --c2:#f5c743; --c3:#52c484;
+  --c0:#f06a52; --c1:#5b94f0; --c2:#f5c743; --c3:#52c484; --c4:#b388f5; --c5:#f58cc4;
   --c0d:#b54633; --c1d:#3764b8; --c2d:#bf9222; --c3d:#2f8b58;
   --lot:#33363e; --lot-edge:#7c808c; --isle:#1d1f24; --win:rgba(255,255,255,.4); --shadow:rgba(0,0,0,.45); --pin:#f2f2f2; --pin-edge:rgba(0,0,0,.4);
   --warn:#ff6a55; --chip:#8a8f9c; --lamp-go:#6fd67c; --lamp-stop:#ff7b66; --lamp-ring:#ecebe6; --grid:rgba(255,255,255,.18); color-scheme:dark }
@@ -52,7 +52,7 @@
   --rock:#45464f; --rock-hi:#575862; --rock-sh:#33343c; --tree:#3d5a4a; --tree-dk:#2e4639;
   --lot:#3a3b44; --lot-edge:#a3a5b0;
   --card:#2a2b33; --fg:#ecebe6; --muted:#9a9aa3; --panel:rgba(32,33,40,.92); --panel-edge:rgba(255,255,255,.10); --accent:#7aa2f7;
-  --c0:#ec7aa6; --c1:#8fd4ef; --c2:#f4c56a; --c3:#b49ce8;
+  --c0:#ec7aa6; --c1:#8fd4ef; --c2:#f4c56a; --c3:#b49ce8; --c4:#7fdc9a; --c5:#ff8a6b;
   --c0d:#b34f7c; --c1d:#4f86bd; --c2d:#d08a56; --c3d:#7d64b8;
   --win:rgba(255,255,255,.45); --shadow:rgba(0,0,0,.42); --warn:#ff6a55; color-scheme:dark }
 [hidden]{display:none!important} /* hidden windows stay hidden even where a style gives them display:flex (outside the artifact host too) */
@@ -209,7 +209,7 @@ const WEEK = 90; // a week lasts a minute and a half: the extras (rings, highway
 // Tuned on 32 autoplayer games (3×3 parking-lot shops, big roundabouts, zero body contacts): calm first ~8 min, loss around 9 min for the bot.
 const T = { startRoads: 25, weekRoads: 20, offerRoads: 12,
   cross3: 0.7, cross4: 0.6, grow: 200, // speed share across a plain crossing
-  pinBase: 8, pinRand: 4, ramp: 1100, rampFloor: 0.45, pinMax: 8, overflow: 22,
+  pinBase: 8, pinRand: 4, ramp: 950, rampFloor: 0.4, pinMax: 8, overflow: 22,
   house: 15, houseRand: 8, shop: 62, shopRand: 15, firstHouse: 10, firstShop: 30 };
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 const $ = id => document.getElementById(id);
@@ -222,7 +222,9 @@ function readPalette(){
   P = { ground:g('--ground'), dot:g('--dot'), road:g('--road'), roadEdge:g('--road-edge'), bridge:g('--bridge'),
         hw:g('--hw'), hwEdge:g('--hw-edge'), hwLine:g('--hw-line'), pillar:g('--pillar'), ramp:g('--ramp'), water:g('--water'), waterEdge:g('--water-edge'), deep:g('--deep'), rock:g('--rock'), rockHi:g('--rock-hi'), rockSh:g('--rock-sh'), tree:g('--tree'), treeDk:g('--tree-dk'), shallow:g('--shallow'), wet:g('--wet'), sand:g('--sand'), sandDk:g('--sand-dk'), meadow:g('--meadow'), warm:g('--warm'), island:g('--island'), sign:g('--sign'),
         lot:g('--lot'), lotEdge:g('--lot-edge'), isle:g('--isle'), win:g('--win'), shadow:g('--shadow'), pin:g('--pin'), pinEdge:g('--pin-edge'), warn:g('--warn'), accent:g('--accent'), lampGo:g('--lamp-go'), lampStop:g('--lamp-stop'), lampRing:g('--lamp-ring'), grid:g('--grid'),
-        col:[g('--c0'),g('--c1'),g('--c2'),g('--c3')], dark:[g('--c0d'),g('--c1d'),g('--c2d'),g('--c3d')] };
+        col:[0,1,2,3,4,5].map(k => g('--c' + k)), dark:[] };
+  { const shade = h => { const m = /^#?([0-9a-f]{6})$/i.exec(h); if (!m) return h; const n = parseInt(m[1], 16); return '#' + [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(v * 0.72).toString(16).padStart(2, '0')).join(''); };
+    P.dark = P.col.map((c, k) => g('--c' + k + 'd') || shade(c)); } // six colours; a colour without its own dark shade gets one made
 }
 // Each map has its own ground colour, as each city does in Mini Motorways: the buildings and roads keep theirs.
 // Every map has its own deep colour, as in Mini Motorways: the ground is saturated, the roads are light on it,
@@ -232,23 +234,23 @@ const MAPCOL = {
   minsk:    { '--ground': '#2f6b45', '--bg': '#245637', '--meadow': '#35744c', '--warm': '#2b6440', '--sand': '#cdbb83', '--sand-dk': '#ad9a63',
               '--road': '#f7d9b5', '--road-edge': '#1c472d', '--lot': '#f7d9b5', '--lot-edge': '#1c472d', '--tree': '#4d9b5d', '--tree-dk': '#215a35',
               '--rock': '#6f8a5a', '--rock-hi': '#93ad7c', '--rock-sh': '#4a6340',
-              '--c0': '#ff6b4f', '--c1': '#5fb0ff', '--c2': '#ffd23f', '--c3': '#f28ad0', '--c0d': '#c2442c', '--c1d': '#2f78c4', '--c2d': '#c99a15', '--c3d': '#b9549a' },
+              '--c0': '#ff6b4f', '--c1': '#5fb0ff', '--c2': '#ffd23f', '--c3': '#f28ad0', '--c4': '#b98cff', '--c5': '#2ad4d4', '--c0d': '#c2442c', '--c1d': '#2f78c4', '--c2d': '#c99a15', '--c3d': '#b9549a' },
   bobruisk: { '--ground': '#6e2233', '--bg': '#591a29', '--meadow': '#76293b', '--warm': '#681f30', '--sand': '#d8b58a', '--sand-dk': '#b48f66',
               '--road': '#cdeee2', '--road-edge': '#45111d', '--lot': '#cdeee2', '--lot-edge': '#45111d', '--tree': '#4f8a52', '--tree-dk': '#2c5934',
               '--rock': '#8a4a52', '--rock-hi': '#a86a70', '--rock-sh': '#5c2a33',
-              '--c0': '#ff9a3d', '--c1': '#5fb0ff', '--c2': '#ffe14d', '--c3': '#5fd39a', '--c0d': '#c46a17', '--c1d': '#2f78c4', '--c2d': '#c9a815', '--c3d': '#2f9a63' },
+              '--c0': '#ff9a3d', '--c1': '#5fb0ff', '--c2': '#ffe14d', '--c3': '#5fd39a', '--c4': '#c9a0ff', '--c5': '#ff8fc7', '--c0d': '#c46a17', '--c1d': '#2f78c4', '--c2d': '#c9a815', '--c3d': '#2f9a63' },
   hills:    { '--ground': '#bd5e28', '--bg': '#a1501f', '--meadow': '#c56832', '--warm': '#b55824', '--sand': '#e8c48a', '--sand-dk': '#c9a066',
               '--road': '#d5e8f6', '--road-edge': '#7e3711', '--lot': '#d5e8f6', '--lot-edge': '#7e3711', '--tree': '#4d8a45', '--tree-dk': '#2f5f2c',
               '--rock': '#9a5530', '--rock-hi': '#cf8d5c', '--rock-sh': '#6a3517',
-              '--c0': '#8b52f0', '--c1': '#3f8ef0', '--c2': '#ffe14d', '--c3': '#3fc47a', '--c0d': '#5d2fb3', '--c1d': '#2a64b8', '--c2d': '#c9a815', '--c3d': '#2a8d55' },
+              '--c0': '#8b52f0', '--c1': '#3f8ef0', '--c2': '#ffe14d', '--c3': '#3fc47a', '--c4': '#ff6fa8', '--c5': '#2ad4d4', '--c0d': '#5d2fb3', '--c1d': '#2a64b8', '--c2d': '#c9a815', '--c3d': '#2a8d55' },
   lake:     { '--ground': '#c49a1f', '--bg': '#a98417', '--meadow': '#cba329', '--warm': '#bd941c', '--sand': '#ecd47e', '--sand-dk': '#cdb25c',
               '--road': '#e4dcf7', '--road-edge': '#755a0c', '--lot': '#e4dcf7', '--lot-edge': '#755a0c', '--tree': '#5b8f3e', '--tree-dk': '#386227',
               '--rock': '#9c7c22', '--rock-hi': '#c9a64a', '--rock-sh': '#6c5512',
-              '--c0': '#e2463a', '--c1': '#2f6fd8', '--c2': '#8a4fe0', '--c3': '#2a9a5a', '--c0d': '#a52c22', '--c1d': '#22509e', '--c2d': '#6234a8', '--c3d': '#1f7244' },
+              '--c0': '#e2463a', '--c1': '#2f6fd8', '--c2': '#8a4fe0', '--c3': '#2a9a5a', '--c4': '#ff7fc0', '--c5': '#22c7c7', '--c0d': '#a52c22', '--c1d': '#22509e', '--c2d': '#6234a8', '--c3d': '#1f7244' },
   random:   { '--ground': '#1f6b6b', '--bg': '#185757', '--meadow': '#257373', '--warm': '#1d6464', '--sand': '#d6c28e', '--sand-dk': '#b3a06c',
               '--road': '#f9d6c3', '--road-edge': '#0f4242', '--lot': '#f9d6c3', '--lot-edge': '#0f4242', '--tree': '#4a9a6a', '--tree-dk': '#25603f',
               '--rock': '#4f7f78', '--rock-hi': '#76a39c', '--rock-sh': '#335a55',
-              '--c0': '#ff6b4f', '--c1': '#b98cff', '--c2': '#ffd23f', '--c3': '#9be36b', '--c0d': '#c2442c', '--c1d': '#7d55c4', '--c2d': '#c99a15', '--c3d': '#62a83a' } };
+              '--c0': '#ff6b4f', '--c1': '#b98cff', '--c2': '#ffd23f', '--c3': '#9be36b', '--c4': '#ff8fc7', '--c5': '#5fb0ff', '--c0d': '#c2442c', '--c1d': '#7d55c4', '--c2d': '#c99a15', '--c3d': '#62a83a' } };
 const MAP_KEYS = [...new Set([...Object.values(MAPCOL).flatMap(o => Object.keys(o)), ...Object.keys(W_BLUE), '--dot', '--grid', '--shadow'])];
 function applyTint(){ const t = MAPCOL[mapId], root = document.documentElement, st = root.style; if (root.dataset.map !== mapId) root.dataset.map = mapId;
   const v = t && { ...W_BLUE, '--dot': 'rgba(255,255,255,.13)', '--grid': 'rgba(255,255,255,.25)', '--shadow': 'rgba(0,0,0,.28)', ...t };
@@ -428,8 +430,8 @@ for (const k in SHOP_TYPES){ const T0 = SHOP_TYPES[k]; T0.lotCells = cellsOf(...
 const LEGACY_SHOP = { s: 'kiosk' }; // saves from before the shapes
 const stallsOf = b => SHOP_TYPES[b.size].stalls;
 // How many orders a shop holds before its timer starts, and how often it orders: small ones 6, big ones up to 10; a grown shop holds 2 more and orders a quarter faster.
-const SHOP_CAP = { mm: 6, kiosk: 6, square: 6, corner: 6, m: 6, long: 8, l: 10, twin: 5, twinB: 5 }, SHOP_RATE = { mm: 1.25, kiosk: 1.25, square: 1.1, corner: 1.1, m: 1.25, long: 1, l: 0.85, twin: 0.85, twinB: 0.85 };
-const capOf = b => (SHOP_CAP[b.size] || 8) + (b.lvl ? 2 : 0), rateOf = b => (SHOP_RATE[b.size] || 1) * (b.lvl ? 0.75 : 1);
+const SHOP_CAP = { mm: 7, kiosk: 6, square: 6, corner: 6, m: 6, long: 8, l: 10, twin: 5, twinB: 5 }, SHOP_RATE = { mm: 1.25, kiosk: 1.25, square: 1.1, corner: 1.1, m: 1.25, long: 1, l: 0.85, twin: 0.85, twinB: 0.85 };
+const capOf = b => b.lvl && b.size === 'mm' ? 10 : (SHOP_CAP[b.size] || 8) + (b.lvl ? 2 : 0), rateOf = b => (SHOP_RATE[b.size] || 1) * (b.lvl ? 0.75 : 1);
 function pickShopSize(){ const r = Math.random(), pick = w => { let t = 0; for (const [k, p] of w){ t += p; if (r < t) return k; } return w[w.length - 1][0]; }; // small ones first, bigger ones later in the game
   // small footprints, as in Mini Motorways: a block with a little lot; the big lots ('long', 'l') are kept only for old saves
   // one building size for every shop, as in Mini Motorways: a 2×2 block with a one-cell strip of lot on one of its sides (which side,
@@ -512,14 +514,14 @@ function farSpot(c, shops, dMin = 6, dMax = 12){ // a new neighbourhood somewher
     let near = 0; for (let ec = -1; ec <= 1; ec++) for (let er = -1; er <= 1; er++) if (inb(cc + ec, r + er) && occ.has(idx(cc + ec, r + er))) near++; if (near) continue;
     const d = Math.min(99, ...shops.map(s0 => Math.max(Math.abs(col_(s0.doorCell) - cc), Math.abs(row_(s0.doorCell) - r)))); if (d < dMin || d > dMax) continue;
     // better still: across the river from its shop, or behind houses of other colours, so the road has to find a way through
-    let w = 1; const sh0 = shops[0]; if (sh0 && water.size && landSteps(sh0.doorCell, i, 40) === Infinity) w += 2;
-    for (let ec = -3; ec <= 3; ec++) for (let er = -3; er <= 3; er++){ const o = inb(cc + ec, r + er) ? occ.get(idx(cc + ec, r + er)) : null; if (o && o.color !== c){ w += 0.4; } }
+    let w = 1; const sh0 = shops[0]; if (sh0 && water.size && landSteps(sh0.doorCell, i, 40) === Infinity) w = time > 240 ? w + 2 : w * 0.15; // across the river only once the town has bridges to spare
+    for (let ec = -3; ec <= 3; ec++) for (let er = -3; er <= 3; er++){ const o = inb(cc + ec, r + er) ? occ.get(idx(cc + ec, r + er)) : null; if (o && o.color !== c){ w += 0.7; } }
     cand.push([i, w]); }
   if (!cand.length) return -1; let tot = 0; for (const q of cand) tot += q[1]; let r0 = Math.random() * tot;
   for (const q of cand){ r0 -= q[1]; if (r0 <= 0) return q[0]; } return cand[cand.length - 1][0]; }
 function newClusterSpot(c){ // usually a few cells from a shop of this colour; about half the time somewhere far off instead, as in Mini Motorways
   const shops = [...bld.values()].filter(b => b.type === 'shop' && b.color === c); if (!shops.length) return freeSpot();
-  if (Math.random() < 0.4 && time > 120){ const f = farSpot(c, shops, 6, 12); if (f >= 0) return f; }
+  if (Math.random() < 0.5 && time > 90){ const f = farSpot(c, shops, 6, 12); if (f >= 0) return f; }
   const sh = shops[Math.floor(Math.random() * shops.length)], c0 = col_(sh.doorCell), r0 = row_(sh.doorCell), cand = [];
   for (let dc = -7; dc <= 7; dc++) for (let dr = -7; dr <= 7; dr++){ const d = Math.max(Math.abs(dc), Math.abs(dr)); if (d < 2 || d > 7 || !inb(c0 + dc, r0 + dr)) continue; const i = idx(c0 + dc, r0 + dr);
     if (!canHouse(i)) continue; let near = 0; for (let ec = -1; ec <= 1; ec++) for (let er = -1; er <= 1; er++) if (inb(c0 + dc + ec, r0 + dr + er) && occ.has(idx(c0 + dc + ec, r0 + dr + er))) near++;
@@ -541,6 +543,13 @@ function drawNextHouse(){ const p = nextHouse; if (!p || !inPlay(p.i)) return; p
   ctx.globalAlpha = 0.9; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x - 3, y - 3, 6.5 * e, 0, 7); ctx.fill();
   ctx.fillStyle = mixC(col, '#ffffff', 0.45); ctx.beginPath(); ctx.arc(x + 4, y + 4, 4.5 * e, 0, 7); ctx.fill();
   if (p.pair){ ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x + 7, y - 6, 3.5 * e, 0, 7); ctx.fill(); } ctx.globalAlpha = 1; }
+function shopSpot(c){ // as in Mini Motorways a new shop tends to land where it is in the way: away from the houses of its own colour, in among the roads and buildings of the others
+  let best = -1, bs = -1e9;
+  for (let t = 0; t < 14; t++){ const i = freeSpot(); if (i < 0) continue; const c0 = col_(i), r0 = row_(i); let own = 12, other = 0;
+    for (const b of bld.values()){ const d = Math.max(Math.abs(col_(b.i) - c0), Math.abs(row_(b.i) - r0)); if (b.color === c){ if (b.type === 'house') own = Math.min(own, d); else if (d < 6) own = Math.min(own, d - 3); } else if (d <= 4) other++; }
+    for (let dc = -3; dc <= 3; dc++) for (let dr = -3; dr <= 3; dr++) if (inb(c0 + dc, r0 + dr) && roads.has(idx(c0 + dc, r0 + dr))) other += 0.25;
+    const sc = Math.min(own, 10) + Math.min(other, 6) * 0.9 + Math.random() * 3; if (sc > bs){ bs = sc; best = i; } }
+  return best; }
 function freeSpot(){
   const r0 = 3 + time / 25, mc = (area.c0 + area.c1) / 2, mr = (area.r0 + area.r1) / 2;
   for (let t = 0; t < 120; t++){
@@ -985,6 +994,7 @@ function boxWhy(car, k){ // why this car may not go into the crossing at segment
   const myT = car.queueG === G ? car.waitAt : time; // a car still rolling up arrives now: after everyone already waiting
   if (car.stuck < 5 && car.lock < 0) for (const o of cars){ // first come, first served (a car still inside the crossing before this one goes on first, so it never stands in it) among cars whose ways cross; a stream from one lane does not starve the rest
     if (o === car || o.phase !== 'go' || o.waitG !== G || o.queueG !== G || !(o.waitAt < myT - 1e-6) || o.curKey === car.curKey) continue;
+    const on = o.segs && o.segs[o.si + 1]; if (!on || on.cell < 0 || jGroup.get(on.cell) !== G) continue; // its note is stale (it slipped on meanwhile)
     const w = boxOk(o, o.si + 1, G);
     if (w === 'room' && exitOf(o, o.si + 1, G) === exitOf(car, k, G)) return 'order'; // it waits for room on the same road out: it is first in that queue too
     if (w && w !== 'cut') continue; // it cannot go for its own reasons (no room, red light): it does not hold up the rest
@@ -1025,7 +1035,7 @@ function replan(car, k){
 function stepCar(car, dt){
   if (car.phase === 'home') return;
   if (car.phase === 'park'){ if (stepLot(car, dt)){ // parked: the order is delivered
-      const s = car.target; s.pins = Math.max(0, s.pins - 1); s.reserved = Math.max(0, s.reserved - 1); trips++; s.done = (s.done || 0) + 1; if (!quiet && typeof launchChip === 'function') launchChip(s);
+      const s = car.target; s.pins = Math.max(0, s.pins - 1); s.reserved = Math.max(0, s.reserved - 1); trips++; { const hd = shopHead(s); if (hd.overT > 0) hd.overT = Math.max(0, hd.overT - 0.7); } s.done = (s.done || 0) + 1; if (!quiet && typeof launchChip === 'function') launchChip(s);
       car.phase = 'wait'; car.waitT = 0.6; car.v = 0; } return; }
   if (car.phase === 'wait'){ car.waitT -= dt;
     if (car.waitT <= 0){ const p = bfsNodes(car.target.i, car.home); // one car backs out at a time, never while another turns in or drives out
@@ -1043,6 +1053,7 @@ function stepCar(car, dt){
       car.lot = mk('lot', null, null, null, 0, -1, crPts([[car.x, car.y], lanePt(b, 1.5, 0.62, true), [start[0], start[1]]]));
       car.s = 0; car.phase = 'leave'; car.rev = false; car.v = 0; } return; }
   if (car.phase === 'leave'){ const st0 = samp(buildGeom(car.homePath)[0], 0);
+    if (SHOP_TYPES[car.target.size].loop && car.s > car.lot.len - CAR_L * 2.6 && car.s < car.lot.len - CAR_L * 1.4 && loopGateIn(car.target) && (car.gateT = (car.gateT || 0) + dt) < 2.5){ car.v = 0; return; } // a car is just turning in through the gate: let it clear
     if (!SHOP_TYPES[car.target.size].loop && car.s > car.lot.len - CAR_L * 2.4 && gateIn(car.target) && (car.gateT = (car.gateT || 0) + dt) < 8){ car.v = 0; return; } // someone is just turning in through the gate
     if (car.s > car.lot.len - MIN_GAP && !spotFree(st0[0], st0[1], car, st0[2], car.target) && (car.gateT = (car.gateT || 0) + dt) < 3){ car.v = 0; return; } // wait at the gate until the road is clear: never pull out onto a car
     if (stepLot(car, dt)){ const v = car.v, da = car.da, from = car.slotShop, push = (car.gateT || 0) >= 3; releaseStall(car); startTrip(car, car.homePath, car.home, true); car.v = v; car.da = da; car.fromShop = from; if (push) car.ghost = 1.5; } return; }
@@ -1059,7 +1070,7 @@ function stepCar(car, dt){
   if (TRAFFIC2){
     // never stand for ever: a car held by the crossing rules themselves (a way cut, the queue order) slips through after 12 s, anything else after 30 s
     if (car.ghost <= 0 && ((car.stuck || 0) > 30 || ((car.stuck || 0) > 12 && (car.why === 'cut' || car.why === 'order')))){ car.ghost = 1.5; car.stuck = 0; }
-    if (car.ghost > 0) car.ghost -= dt;
+    if (car.ghost > 0){ car.ghost -= dt; car.waitG = -1; car.why = ''; }
     else {
       let [gap, ld] = leadAhead(car, LOOK * 1.6); car.leadBy = ld; const nx0 = car.segs[car.si + 1];
       if (seg.kind !== 'line' || (nx0 && nx0.kind !== 'line' && seg.len - car.s < CELL * 0.6)) gap -= 5; // on a bend two bodies at the same distance along the way stand closer: keep a little more
@@ -1113,7 +1124,7 @@ function stepCar(car, dt){
     car.s -= seg.len; car.si++;
     if (car.si >= car.segs.length){ arrive(car); return; }
     if (!car.back && car.si === car.segs.length - 1 && car.target.type === 'shop'){ // entering the lot
-      const k = (!SHOP_TYPES[car.target.size].loop && lotMoving(car.target, SHOP_TYPES[car.target.size].short ? ['unpark', 'leave'] : ['unpark'])) || (!SHOP_TYPES[car.target.size].loop && gateOut(car.target, car)) ? -1 : freeStall(car.target); if (k < 0){ car.si--; car.s = seg.len; car.v = 0; break; }
+      const k = (!SHOP_TYPES[car.target.size].loop && lotMoving(car.target, SHOP_TYPES[car.target.size].short ? ['unpark', 'leave'] : ['unpark'])) || (SHOP_TYPES[car.target.size].loop ? loopGateOut(car.target) : gateOut(car.target, car)) ? -1 : freeStall(car.target); if (k < 0){ car.si--; car.s = seg.len; car.v = 0; break; }
       car.slot = k; car.slotShop = car.target; car.target.slots[k] = car;
       const [x0, y0] = samp(car.segs[car.si], 0); car.x = x0; car.y = y0; enterCell(car, -1); intoLot(car); return; }
     const ns = car.segs[car.si];
@@ -1213,6 +1224,7 @@ const spotFree = (x, y, me, ang, shop) => !cars.some(o => o !== me && o.phase ==
 // A car already standing in the door cell goes in: it would only block the one coming out.
 const gateOut = (sh, me) => { const inDoor = me && me.segs && me.segs[me.si] && me.segs[me.si].cell === sh.doorCell; if (inDoor || (me && (me.stuck || 0) > 4)) return false;
   return cars.some(o => o !== me && ((o.phase === 'leave' && o.slotShop === sh && o.s > o.lot.len - CAR_L * 2.2) || (o.phase === 'go' && o.back && o.fromShop === sh && o.segs[o.si] && (o.segs[o.si].cell === sh.i || (o.segs[o.si].cell === sh.doorCell && o.si <= 1))))); };
+const loopGateIn = sh => cars.some(o => o.phase === 'park' && o.slotShop === sh && o.s < CAR_L * 1.5), loopGateOut = sh => cars.some(o => o.phase === 'leave' && o.slotShop === sh && o.s > o.lot.len - CAR_L * 1.4);
 const gateIn = sh => cars.some(o => o.phase === 'park' && o.slotShop === sh && o.s < CAR_L * 1.8);
 function lotFull(car, k){
   if (car.back || car.target.type !== 'shop') return false;
@@ -1220,7 +1232,7 @@ function lotFull(car, k){
   const last = k === car.segs.length - 1, door = car.target.doorCell;
   const intoDoorCrossing = sg.cell === door && jGroup.has(door) && (car.si < 0 || car.segs[car.si].cell === -1 || jGroup.get(car.segs[car.si].cell) !== jGroup.get(door));
   if (!last && !intoDoorCrossing) return false;
-  return freeStall(car.target) < 0 || (!SHOP_TYPES[car.target.size].loop && lotMoving(car.target, SHOP_TYPES[car.target.size].short ? ['unpark', 'leave'] : ['unpark'])) || (!SHOP_TYPES[car.target.size].loop && gateOut(car.target, car)); } // a one-lane strip is one way at a time; a loop lot has its own way in and out
+  return freeStall(car.target) < 0 || (!SHOP_TYPES[car.target.size].loop && lotMoving(car.target, SHOP_TYPES[car.target.size].short ? ['unpark', 'leave'] : ['unpark'])) || (SHOP_TYPES[car.target.size].loop ? loopGateOut(car.target) : gateOut(car.target, car)); } // a one-lane strip is one way at a time; a loop lot has its own way in and out
 function goHome(car){
   releaseStall(car); car.passCar = null;
   if (!car.back && car.target && car.phase === 'go') car.target.reserved = Math.max(0, car.target.reserved - 1);
@@ -1283,14 +1295,14 @@ function tick(dt){
     // otherwise the colour with the fewest shops, and never the same colour twice in a row while there is a choice
     const nShops = [...bld.values()].filter(b => b.type === 'shop' && !isTail(b)), lastC = nShops.length ? nShops[nShops.length - 1].color : -1;
     let c, fresh = false;
-    if (colorsInPlay < 2 || (colorsInPlay < 4 && nShops.length >= colorsInPlay * 2 && Math.random() < 0.6)){ c = colorsInPlay; fresh = true; }
+    if (colorsInPlay < 2 || (colorsInPlay < 6 && nShops.length >= colorsInPlay * 2 && Math.random() < 0.6)){ c = colorsInPlay; fresh = true; }
     else { const cnt = c0 => nShops.filter(b => b.color === c0).length; const opts = []; for (let k = 0; k < colorsInPlay; k++) if (k !== lastC || colorsInPlay === 1) opts.push(k);
       const lo = Math.min(...opts.map(cnt)); const best = opts.filter(k => cnt(k) === lo); c = best[Math.floor(Math.random() * best.length)]; }
     let done = false;
-    for (let t = 0; t < 8 && !done; t++){ const i = freeSpot(); if (i < 0 || !place(i, 'shop', c)) continue;
+    for (let t = 0; t < 8 && !done; t++){ const i = shopSpot(c); if (i < 0 || !place(i, 'shop', c)) continue;
       // a shop comes alone, as in Mini Motorways; only a new colour brings a pair of its houses, and they turn up somewhere else in town
       const sb = [...bld.values()].pop();
-      { const f1 = farSpot(c, [sb], 3, 5), h1 = f1 >= 0 ? f1 : spotNear(sb.i); if (h1 < 0){ unplaceShop(sb); continue; } // every shop brings a pair of its houses, a few blocks away (not next door)
+      { const f1 = farSpot(c, [sb], 5, 9), h1 = f1 >= 0 ? f1 : spotNear(sb.i); if (h1 < 0){ unplaceShop(sb); continue; } // every shop brings a pair of its houses, a few blocks away (not next door)
         quiet = true; place(h1, 'house', c); const hb = bld.get(h1), h2 = hb ? besideHouse(hb) : -1; if (h2 >= 0) place(h2, 'house', c, hb.door); quiet = false; if (fresh) colorsInPlay++; }
       sfx('shop'); done = true; }
     spawnShopT = done ? T.shop + Math.random() * T.shopRand : 3; }
@@ -1540,11 +1552,11 @@ function drawShopBody(b){
 function carHw(car){ const g = car.segs[car.si]; if (g.h) return g.h; const n = car.segs[car.si + 1], p = car.segs[car.si - 1];
   return (n && n.h) || (p && p.h) || null; }
 // An order chip: a coin in the shop's colour with a little white car on it. Dim = a car is already on its way for it.
-const CHIP_R = 6, CHIP_LIFT = 2; // order markers stand on the roof
-function roofChip(b, k, n){ const r = SHOP_TYPES[b.size].bld[0], B = boxOf(b, r[0], r[1], r[2], r[3], 3), wide = B[2] > B[3] * 1.3, per = wide ? 4 : B[2] < B[3] / 1.3 ? 2 : 3, step = CHIP_R * 2 + 2;
+const CHIP_R = 5, CHIP_LIFT = 2; // order markers stand on the roof
+function roofChip(b, k, n){ const r = SHOP_TYPES[b.size].bld[0], B = boxOf(b, r[0], r[1], r[2], r[3], 3), wide = B[2] > B[3] * 1.3, per = wide ? 5 : B[2] < B[3] / 1.3 ? 2 : 4, step = CHIP_R * 2 + 4, stepY = CHIP_R * 2.4 + 5; // markers stand apart in neat rows: each one can be counted
   const rows = Math.ceil(n / per), row = Math.floor(k / per), inRow = Math.min(per, n - row * per), col = k % per;
   const mx = B[0] + B[2] / 2, my = B[1] + B[3] / 2 - SHOP_H - CHIP_LIFT;
-  return [mx + (col - (inRow - 1) / 2) * step, my + (row - (rows - 1) / 2) * step]; }
+  return [mx + (col - (inRow - 1) / 2) * step, my + (row - (rows - 1) / 2) * stepY]; }
 function pinPath(x, y, r){ // a map marker whose tip stands at (x, y + r)
   const cy0 = y - r * 0.35, a = Math.asin(0.55); ctx.beginPath(); ctx.moveTo(x, y + r * 1.05);
   ctx.arc(x, cy0, r, Math.PI / 2 + a, Math.PI / 2 - a + Math.PI * 2); ctx.closePath(); }
